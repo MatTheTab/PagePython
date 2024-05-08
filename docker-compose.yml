@@ -1,0 +1,28 @@
+version: '3'
+services:
+  library_project_1:
+    image: cassandra
+    container_name: library_project_1
+    networks:
+      - cassandraNet
+
+  library_project_2:
+    image: cassandra
+    container_name: library_project_2
+    environment:
+      - CASSANDRA_SEEDS=library_project_1
+    networks:
+      - cassandraNet
+
+  library_project_3:
+    image: cassandra
+    container_name: library_project_3
+    environment:
+      - CASSANDRA_SEEDS=library_project_1
+    networks:
+      - cassandraNet
+
+networks:
+  cassandraNet:
+    driver: bridge
+
