@@ -20,6 +20,5 @@ table_query = """
 """
 
 session.execute(table_query)
-
 session.shutdown()
 cluster.shutdown()
