@@ -3,6 +3,8 @@ services:
   library_project_1:
     image: cassandra
     container_name: library_project_1
+    ports:
+      - "9042:9042"
     networks:
       - cassandraNet
 
@@ -25,4 +27,3 @@ services:
 networks:
   cassandraNet:
     driver: bridge
-
