@@ -1,6 +1,7 @@
 from cassandra.cluster import Cluster
 from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
 import uuid
+import time
 
 cluster = Cluster(['172.20.0.2'])
 session = cluster.connect()
@@ -19,7 +20,7 @@ session.set_keyspace('library_keyspace')
 table_query = """
     CREATE TABLE IF NOT EXISTS reservations (
         reservation_id UUID,
-        user_id UUID,
+        user_id INT,
         reservation_start TIMESTAMP,
         reservation_end TIMESTAMP,
         book_id UUID,
@@ -32,12 +33,13 @@ session.execute(table_query, timeout=120)
 print("Created Table")
 
 reservation_id = uuid.uuid4()
-user_id = uuid.uuid4()
+user_id = 1  # Assuming user_id as integer
 book_id = uuid.uuid4()
 insert_query = """
     INSERT INTO reservations (reservation_id, user_id, reservation_start, reservation_end, book_id, book_name, book_genre)
     VALUES  (%s, %s, toTimestamp(now()), toTimestamp(now()) + 1d, %s, 'Catcher in the Ray', 'Drama'); 
 """
+time.sleep(10) #Created because of Eventual Consistency
 
 session.execute(insert_query, [reservation_id, user_id, book_id], timeout=120)
 print("Inserted Data")
