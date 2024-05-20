@@ -179,6 +179,12 @@ class App(ctk.CTk):
         bt_frame2 = ctk.CTkButton(left_side_panel, text="Tests", font=("Calibri", 15, 'bold'), command=self.frame3_selector)
         bt_frame2.grid(row=2, column=0, padx=20, pady=10)
 
+        
+        logo = ctk.CTkImage(light_image=Image.open('imgs/chat.png'), dark_image=Image.open('imgs/chat.png'), size=(100, 100))
+
+        my_label = ctk.CTkLabel(left_side_panel, text="", image=logo)
+        my_label.grid(row=4, pady=(300, 0), sticky="s")
+
         self.right_side_panel = ctk.CTkFrame(main_container)
         self.right_side_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 

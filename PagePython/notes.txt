@@ -1,0 +1,12 @@
+TABLES:
+
+Reservation = ('reservation_id', 'user_id', 'user_name', 'book_name', 'book_id')
+Books = ('book_id', 'book_name', 'is_reserved')
+Users = ('user_id', 'list_of_reservation_ids')
+
+TESTS:
+print results in text boxes
+
+VIEW:
+add user_name to list,
+change DELETE to CANCEL
