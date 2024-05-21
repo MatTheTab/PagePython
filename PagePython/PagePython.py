@@ -4,7 +4,7 @@ from utils.query_utils import *
 import uuid
 import time
 
-cluster = Cluster(['172.21.0.2'])
+cluster = Cluster(['172.22.0.2'])
 session = cluster.connect()
 
 cluster.default_retry_policy = RetryPolicy()
@@ -35,9 +35,9 @@ time.sleep(10) # sleep added because of eventual consistency (only for testing)
 user_id_1 = uuid.uuid4()
 user_id_2 = uuid.uuid4()
 user_id_3 = uuid.uuid4()
-add_user(session, user_id = user_id_1, user_name = "Test User 1", reservation_ids = [])
-add_user(session, user_id = user_id_1, user_name = "Test User 2", reservation_ids = [])
-add_user(session, user_id = user_id_1, user_name = "Test User 3", reservation_ids = [])
+add_user(session, user_id = user_id_1, user_name = "Test User 1")
+add_user(session, user_id = user_id_1, user_name = "Test User 2")
+add_user(session, user_id = user_id_1, user_name = "Test User 3")
 print("_______________")
 print("Added Users")
 time.sleep(10) # sleep added because of eventual consistency (only for testing)

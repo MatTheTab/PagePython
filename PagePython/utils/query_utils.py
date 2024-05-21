@@ -1,4 +1,5 @@
 from cassandra import InvalidRequest, ReadTimeout, ReadFailure
+import uuid
 
 # Function Descriptions:
 # - create_keyspace(session, W, R, N, timeout = 120) -> creates keyspace called "library_keyspace", W,R,N to be implemented
@@ -48,7 +49,7 @@ def create_reservations_table(session, timeout = 120):
             user_id UUID,
             user_name TEXT,
             book_name TEXT,
-            book_id INT,
+            book_id UUID,
             PRIMARY KEY (reservation_id)
         );
     """
@@ -70,7 +71,7 @@ def create_users_table(session, timeout = 120):
         CREATE TABLE IF NOT EXISTS users (
             user_id UUID,
             user_name TEXT,
-            reservation_ids_list LIST<TEXT>,
+            reservation_ids_list LIST<UUID>,
             PRIMARY KEY (user_id)
         );
     """
@@ -95,46 +96,54 @@ def delete_users_table(session, timeout = 120):
     session.execute(users_table_deletion_query, timeout = timeout)
 
 def set_book_reserved(session, book_id, reserved, timeout=120):
-    book_set_query = """
-        UPDATE books SET is_reserved = %s WHERE book_id = %s;
-    """
+    if reserved:
+        book_set_query = """
+            UPDATE books SET is_reserved = true WHERE book_id = %s;
+        """
+    else:
+        book_set_query = """
+            UPDATE books SET is_reserved = false WHERE book_id = %s;
+        """
     try:
-        session.execute(book_set_query, [reserved, book_id], timeout=timeout)
-        print("Book marked as reserved/not reserved successfully.")
+        session.execute(book_set_query, [book_id], timeout=timeout)
     except InvalidRequest as e:
         print("Error occurred while updating book reservation status:", e)
         raise e
     
 def add_book(session, book_id, book_name, is_reserved, timeout = 120):
-    insert_book_query = """
-        INSERT INTO books (book_id, book_name, is_reserved)
-        VALUES (%s, %s, %s);
-    """
+    if is_reserved:
+        insert_book_query = """
+            INSERT INTO books (book_id, book_name, is_reserved)
+            VALUES (%s, %s, true);
+        """
+    else:
+        insert_book_query = """
+            INSERT INTO books (book_id, book_name, is_reserved)
+            VALUES (%s, %s, false);
+        """
     try:
-        session.execute(insert_book_query, [book_id, book_name, is_reserved], timeout = timeout)
+        session.execute(insert_book_query, [book_id, book_name], timeout = timeout)
     except InvalidRequest as e:
         print("Error Occured while inserting a new book to the table: ", e)
 
-def add_user(session, user_id, user_name, reservation_ids, timeout = 120):
+def add_user(session, user_id, user_name, timeout = 120):
     insert_user_query = """
-        INSERT INTO users (user_id, user_name, reservation_ids_list)
-        VALUES (%s, %s, %s);
+        INSERT INTO users (user_id, user_name)
+        VALUES (%s, %s);
     """
-    complete_reservation_list = "["
-    for res_id in reservation_ids:
-        complete_reservation_list += f"'{res_id}'"
-    complete_reservation_list += "]"
     try:
-        session.execute(insert_user_query, [user_id, user_name, complete_reservation_list], timeout = timeout)
+        session.execute(insert_user_query, [user_id, user_name], timeout = timeout)
     except InvalidRequest as e:
         print("Error Occured while inserting a new user to the table: ", e)
 
 def add_reservation_to_list(session, user_id, reservation_id, timeout = 120):
-    book_list_update_query = """
-        UPDATE users SET reservation_ids_list = reservation_ids_list + [%s] WHERE user_id = %s;
-    """
+    #TODO: fix later
+    temp_uuid = uuid.uuid4()
+    book_list_update_query = f"""UPDATE users SET reservation_ids_list = [{temp_uuid}] WHERE user_id = {user_id}"""
+    print()
+    print(book_list_update_query)
     try:
-        session.execute(book_list_update_query, [reservation_id, user_id], timeout = timeout)
+        session.execute(book_list_update_query, timeout = timeout)
     except InvalidRequest as e:
         print("Error Occured while appending a book to list: ", e)
         raise e
@@ -142,10 +151,10 @@ def add_reservation_to_list(session, user_id, reservation_id, timeout = 120):
 def append_user_reservation(session, user_id, user_name, reservation_id, timeout = 120):
     try:
         user = get_user(session, user_id, timeout = timeout)
+        print(user)
         if user is None:
-            add_user(session, user_id, user_name, [reservation_id], timeout = timeout)
-        else:
-            add_reservation_to_list(session, user_id, reservation_id, timeout=timeout)
+            add_user(session, user_id, user_name, timeout = timeout)
+        add_reservation_to_list(session, user_id, reservation_id, timeout=timeout)
     except InvalidRequest as e:
         print("Error Occured while adding a reservation to the user's reservation list: ", e)
         raise e
@@ -156,7 +165,7 @@ def add_reservation(session, reservation_id, user_id, user_name, book_name, book
         VALUES (%s, %s, %s, %s, %s);
     """
     try:
-        set_book_reserved(session, book_id=book_id, reserved=1, timeout = timeout)
+        set_book_reserved(session, book_id=book_id, reserved = True, timeout = timeout)
         append_user_reservation(session, user_id, user_name, reservation_id, timeout = timeout)
         session.execute(insert_reservation_query, [reservation_id, user_id, user_name, book_name, book_id], timeout=timeout)
     except InvalidRequest as e:
@@ -172,8 +181,8 @@ def update_reservation(session, reservation_id, book_id, timeout = 120):
         new_book_name = book.book_name
         past_book_id = reservation.book_id
         user_id = reservation.user_id
-        set_book_reserved(session, past_book_id, reserved=0, timeout = timeout)
-        set_book_reserved(session, book_id, reserved=1, timeout = timeout)
+        set_book_reserved(session, past_book_id, reserved = False, timeout = timeout)
+        set_book_reserved(session, book_id, reserved = True, timeout = timeout)
         delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
         add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
         session.execute(update_reservation_query, [book_id, new_book_name, reservation_id], timeout = timeout)
@@ -215,7 +224,7 @@ def cancel_reservation(session, reservation_id, timeout = 120):
         reservation = get_reservation_by_id(session, reservation_id, timeout = timeout)
         user_id = reservation.user_id
         book_id = reservation.book_id
-        set_book_reserved(session, book_id, reserved=0, timeout = timeout)
+        set_book_reserved(session, book_id, reserved = False, timeout = timeout)
         delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
         session.execute(reservation_cancel_query, [reservation_id], timeout = timeout)
     except InvalidRequest as e:
@@ -243,12 +252,10 @@ def get_all_books(session, timeout = 120):
     return result
 
 def get_reservation_by_id(session, reservation_id, timeout=120):
-    query = """
-        SELECT * FROM reservations WHERE reservation_id = %s;
-    """
+    query = f"""SELECT * FROM reservations WHERE reservation_id = {reservation_id}"""
     try:
         prepared = session.prepare(query)
-        result = session.execute(prepared, [reservation_id], timeout=timeout)
+        result = session.execute(prepared, timeout=timeout)
         reservation = result.one()
         if reservation is None:
             raise ValueError("No reservation found with ID: {}".format(reservation_id))
@@ -258,12 +265,10 @@ def get_reservation_by_id(session, reservation_id, timeout=120):
         return None
     
 def get_book(session, book_id, timeout=120):
-    query = """
-        SELECT * FROM books WHERE book_id = %s;
-    """
+    query = f"""SELECT * FROM books WHERE book_id = {book_id}"""
     try:
         prepared = session.prepare(query)
-        result = session.execute(prepared, [book_id], timeout=timeout)
+        result = session.execute(prepared, timeout=timeout)
         book = result.one()
         if book is None:
             raise ValueError("No book found with ID: {}".format(book_id))
@@ -273,12 +278,10 @@ def get_book(session, book_id, timeout=120):
         return None
 
 def get_user(session, user_id, timeout=120):
-    query = """
-        SELECT * FROM users WHERE user_id = %s;
-    """
+    query = f""" SELECT * FROM users WHERE user_id = {user_id}"""
     try:
         prepared = session.prepare(query)
-        result = session.execute(prepared, [user_id], timeout=timeout)
+        result = session.execute(prepared, timeout=timeout)
         user = result.one()
         if user is None:
             raise ValueError("No user found with ID: {}".format(user_id))
