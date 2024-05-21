@@ -19,26 +19,188 @@ print("Created Books table")
 create_users_table(session)
 print("Created users table")
 
-reservation_id = uuid.uuid4()
-user_id = uuid.uuid4()
-book_id = uuid.uuid4()
-insert_query = """
-    INSERT INTO reservations (reservation_id, user_id, reservation_start, reservation_end, book_id, book_name, book_genre)
-    VALUES  (%s, %s, toTimestamp(now()), toTimestamp(now()) + 1d, %s, 'Catcher in the Ray', 'Drama'); 
-"""
-time.sleep(10) #Created because of Eventual Consistency
+#################### Mini Tests ####################
+book_id_1 = uuid.uuid4()
+book_id_2 = uuid.uuid4()
+book_id_3 = uuid.uuid4()
+book_id_4 = uuid.uuid4()
+add_book(session, book_id = book_id_1, book_name = "Test Book 1", is_reserved = 0)
+add_book(session, book_id = book_id_2, book_name = "Test Book 2", is_reserved = 0)
+add_book(session, book_id = book_id_3, book_name = "Test Book 3", is_reserved = 0)
+add_book(session, book_id = book_id_4, book_name = "Test Book 4", is_reserved = 0)
+print("______________")
+print("Added Books")
+time.sleep(10) # sleep added because of eventual consistency (only for testing)
 
-session.execute(insert_query, [reservation_id, user_id, book_id], timeout=120)
-print("Inserted Data")
+user_id_1 = uuid.uuid4()
+user_id_2 = uuid.uuid4()
+user_id_3 = uuid.uuid4()
+add_user(session, user_id = user_id_1, user_name = "Test User 1", reservation_ids = [])
+add_user(session, user_id = user_id_1, user_name = "Test User 2", reservation_ids = [])
+add_user(session, user_id = user_id_1, user_name = "Test User 3", reservation_ids = [])
+print("_______________")
+print("Added Users")
+time.sleep(10) # sleep added because of eventual consistency (only for testing)
 
-selection_query = """
-    SELECT * FROM reservations;
-"""
+reservation_id_1 = uuid.uuid4()
+reservation_id_2 = uuid.uuid4()
+reservation_id_3 = uuid.uuid4()
+add_reservation(session, reservation_id = reservation_id_1, user_id = user_id_1, user_name = "Test User 1", book_name = "Test Book 1", book_id = book_id_1)
+add_reservation(session, reservation_id = reservation_id_2, user_id = user_id_2, user_name = "Test User 2", book_name = "Test Book 2", book_id = book_id_2)
+add_reservation(session, reservation_id = reservation_id_3, user_id = user_id_3, user_name = "Test User 3", book_name = "Test Book 3", book_id = book_id_3)
+print("__________________")
+print("Added Reservations")
+time.sleep(10) # sleep added because of eventual consistency (only for testing)
 
-result = session.execute(selection_query)
-for row in result:
+print("___________________")
+print("All Reservations: ")
+reservations = get_all_reservations(session)
+for row in reservations:
     print(row)
 
+print()
+print("___________________")
+print("All Users")
+users = get_all_users(session)
+for row in users:
+    print(row)
+
+print()
+print("___________________")
+print("All Books")
+books = get_all_books(session)
+for row in books:
+    print(row)
+
+print()
+print("____________________")
+print("Reservation 2: ")
+res2 = get_reservation_by_id(session, reservation_id = reservation_id_2)
+print(res2)
+
+print()
+print("____________________")
+print("User 2: ")
+us2 = get_user(session, user_id = user_id_2)
+print(us2)
+
+print()
+print("____________________")
+print("Book 2: ")
+book2 = get_book(session, book_id = book_id_2)
+print(book2)
+
+print()
+print("****************************************")
+print("Updating Reservation 2")
+update_reservation(session, reservation_id=reservation_id_1, book_id=book_id_4)
+time.sleep(15) # sleep added because of eventual consistency (only for testing)
+print("___________________")
+print("All Reservations: ")
+reservations = get_all_reservations(session)
+for row in reservations:
+    print(row)
+
+print()
+print("___________________")
+print("All Users")
+users = get_all_users(session)
+for row in users:
+    print(row)
+
+print()
+print("___________________")
+print("All Books")
+books = get_all_books(session)
+for row in books:
+    print(row)
+print("******************************************")
+print()
+
+print()
+print("****************************************")
+print("Updating Reservation 2 -> Should not be possible")
+update_reservation(session, reservation_id=reservation_id_1, book_id=book_id_2)
+time.sleep(15) # sleep added because of eventual consistency (only for testing)
+print("___________________")
+print("All Reservations: ")
+reservations = get_all_reservations(session)
+for row in reservations:
+    print(row)
+
+print()
+print("___________________")
+print("All Users")
+users = get_all_users(session)
+for row in users:
+    print(row)
+
+print()
+print("___________________")
+print("All Books")
+books = get_all_books(session)
+for row in books:
+    print(row)
+print("******************************************")
+print()
+
+print()
+print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+print("Cancelling reservation")
+cancel_reservation(session, reservation_id=reservation_id_2)
+time.sleep(15) # sleep added because of eventual consistency (only for testing)
+print("___________________")
+print("All Reservations: ")
+reservations = get_all_reservations(session)
+for row in reservations:
+    print(row)
+
+print()
+print("___________________")
+print("All Users")
+users = get_all_users(session)
+for row in users:
+    print(row)
+
+print()
+print("___________________")
+print("All Books")
+books = get_all_books(session)
+for row in books:
+    print(row)
+print("******************************************")
+print()
+
+print()
+print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+print("Changing username")
+update_username(session, user_id=user_id_1, user_name="Changed User")
+time.sleep(20) # sleep added because of eventual consistency (only for testing)
+print("___________________")
+print("All Reservations: ")
+reservations = get_all_reservations(session)
+for row in reservations:
+    print(row)
+
+print()
+print("___________________")
+print("All Users")
+users = get_all_users(session)
+for row in users:
+    print(row)
+
+print()
+print("___________________")
+print("All Books")
+books = get_all_books(session)
+for row in books:
+    print(row)
+
+print()
+print("TESTS PASSED WOOOOOO")
+print()
+
+#################### End of Mini Tests ####################
 delete_reservations_table()
 print("Deleted Reservations Table")
 delete_books_table()

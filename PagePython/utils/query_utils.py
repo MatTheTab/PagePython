@@ -9,7 +9,7 @@ from cassandra import InvalidRequest, ReadTimeout, ReadFailure
 # - delete_reservations_table(session, timeout = 120) -> deletes the reservations table
 # - delete_books_table(session, timeout = 120) -> deletes the books table
 # - delete_users_table(session, timeout = 120) -> deletes the users table
-# - set_book_reserved(session, book_id, reserved, timeout=120) -> set the book's reserved status, reserved can be 'true' or 'false'
+# - set_book_reserved(session, book_id, reserved, timeout=120) -> set the book's reserved status, reserved can be 1 or 0
 # - add_book(session, book_id, book_name, is_reserved, timeout = 120) -> insert query into books with specified values
 # - add_user(session, user_id, user_name, reservation_ids, timeout = 120) -> insert query into users with specified values
 # - add_reservation_to_list(session, user_id, reservation_id, timeout = 120) -> add a reservation to the list of user reservations
@@ -156,7 +156,7 @@ def add_reservation(session, reservation_id, user_id, user_name, book_name, book
         VALUES (%s, %s, %s, %s, %s);
     """
     try:
-        set_book_reserved(session, book_id=book_id, reserved="true", timeout = timeout)
+        set_book_reserved(session, book_id=book_id, reserved=1, timeout = timeout)
         append_user_reservation(session, user_id, user_name, reservation_id, timeout = timeout)
         session.execute(insert_reservation_query, [reservation_id, user_id, user_name, book_name, book_id], timeout=timeout)
     except InvalidRequest as e:
@@ -172,8 +172,8 @@ def update_reservation(session, reservation_id, book_id, timeout = 120):
         new_book_name = book.book_name
         past_book_id = reservation.book_id
         user_id = reservation.user_id
-        set_book_reserved(session, past_book_id, reserved="false", timeout = timeout)
-        set_book_reserved(session, book_id, reserved="true", timeout = timeout)
+        set_book_reserved(session, past_book_id, reserved=0, timeout = timeout)
+        set_book_reserved(session, book_id, reserved=1, timeout = timeout)
         delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
         add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
         session.execute(update_reservation_query, [book_id, new_book_name, reservation_id], timeout = timeout)
@@ -215,7 +215,7 @@ def cancel_reservation(session, reservation_id, timeout = 120):
         reservation = get_reservation_by_id(session, reservation_id, timeout = timeout)
         user_id = reservation.user_id
         book_id = reservation.book_id
-        set_book_reserved(session, book_id, reserved="false", timeout = timeout)
+        set_book_reserved(session, book_id, reserved=0, timeout = timeout)
         delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
         session.execute(reservation_cancel_query, [reservation_id], timeout = timeout)
     except InvalidRequest as e:
