@@ -29,12 +29,12 @@ import uuid
 
 
 #TODO: Potentially set the below values for W, R, N
-def create_keyspace(session, W, R, N, timeout = 120):
+def create_keyspace(session, replication_factor = 2, timeout = 120):
     keyspace_query = """
         CREATE KEYSPACE IF NOT EXISTS library_keyspace 
-        WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 2};
+        WITH replication = {'class': 'SimpleStrategy', 'replication_factor': %s};
     """
-    session.execute(keyspace_query, timeout = timeout)
+    session.execute(keyspace_query, [replication_factor], timeout = timeout)
 
 def delete_keyspace(session, timeout = 120):
     keyspace_deletion_query = """ 
@@ -137,11 +137,7 @@ def add_user(session, user_id, user_name, timeout = 120):
         print("Error Occured while inserting a new user to the table: ", e)
 
 def add_reservation_to_list(session, user_id, reservation_id, timeout = 120):
-    #TODO: fix later
-    temp_uuid = uuid.uuid4()
-    book_list_update_query = f"""UPDATE users SET reservation_ids_list = [{temp_uuid}] WHERE user_id = {user_id}"""
-    print()
-    print(book_list_update_query)
+    book_list_update_query = f"""UPDATE users SET reservation_ids_list = reservation_ids_list + [{reservation_id}] WHERE user_id = {user_id}"""
     try:
         session.execute(book_list_update_query, timeout = timeout)
     except InvalidRequest as e:
@@ -150,8 +146,7 @@ def add_reservation_to_list(session, user_id, reservation_id, timeout = 120):
         
 def append_user_reservation(session, user_id, user_name, reservation_id, timeout = 120):
     try:
-        user = get_user(session, user_id, timeout = timeout)
-        print(user)
+        user = get_user(session, user_id, timeout = timeout, print_error_message = False)
         if user is None:
             add_user(session, user_id, user_name, timeout = timeout)
         add_reservation_to_list(session, user_id, reservation_id, timeout=timeout)
@@ -165,9 +160,11 @@ def add_reservation(session, reservation_id, user_id, user_name, book_name, book
         VALUES (%s, %s, %s, %s, %s);
     """
     try:
-        set_book_reserved(session, book_id=book_id, reserved = True, timeout = timeout)
-        append_user_reservation(session, user_id, user_name, reservation_id, timeout = timeout)
-        session.execute(insert_reservation_query, [reservation_id, user_id, user_name, book_name, book_id], timeout=timeout)
+        book = get_book(session, book_id = book_id)
+        if not book.is_reserved:
+            set_book_reserved(session, book_id=book_id, reserved = True, timeout = timeout)
+            append_user_reservation(session, user_id, user_name, reservation_id, timeout = timeout)
+            session.execute(insert_reservation_query, [reservation_id, user_id, user_name, book_name, book_id], timeout=timeout)
     except InvalidRequest as e:
         print("Error occurred while inserting reservation:", e)
 
@@ -178,14 +175,15 @@ def update_reservation(session, reservation_id, book_id, timeout = 120):
     try:
         reservation = get_reservation_by_id(session, reservation_id, timeout = timeout)
         book = get_book(session, book_id, timeout = timeout)
-        new_book_name = book.book_name
-        past_book_id = reservation.book_id
-        user_id = reservation.user_id
-        set_book_reserved(session, past_book_id, reserved = False, timeout = timeout)
-        set_book_reserved(session, book_id, reserved = True, timeout = timeout)
-        delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
-        add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
-        session.execute(update_reservation_query, [book_id, new_book_name, reservation_id], timeout = timeout)
+        if not book.is_reserved:
+            new_book_name = book.book_name
+            past_book_id = reservation.book_id
+            user_id = reservation.user_id
+            set_book_reserved(session, past_book_id, reserved = False, timeout = timeout)
+            set_book_reserved(session, book_id, reserved = True, timeout = timeout)
+            delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
+            add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
+            session.execute(update_reservation_query, [book_id, new_book_name, reservation_id], timeout = timeout)
     except InvalidRequest as e:
         print("Error occurred while updating a reservation:", e)
 
@@ -207,11 +205,9 @@ def update_username(session, user_id, user_name, timeout = 120):
         print("Error occurred while updating a reservation:", e)
 
 def delete_user_reservation(session, user_id, reservation_id, timeout = 120):
-    user_reservation_delete_query = """
-        UPDATE users SET reservation_ids_list = reservation_ids_list - [%s] WHERE user_id = %s;
-    """
+    user_reservation_delete_query = f"""UPDATE users SET reservation_ids_list = reservation_ids_list - [{reservation_id}] WHERE user_id = {user_id}"""
     try:
-        session.execute(user_reservation_delete_query, [reservation_id, user_id], timeout=timeout)
+        session.execute(user_reservation_delete_query, timeout=timeout)
     except InvalidRequest as e:
         print("Error occurred while removing reservation ID from user:", e)
         raise e
@@ -277,7 +273,7 @@ def get_book(session, book_id, timeout=120):
         print("Error occurred while fetching the book:", e)
         return None
 
-def get_user(session, user_id, timeout=120):
+def get_user(session, user_id, timeout=120, print_error_message = True):
     query = f""" SELECT * FROM users WHERE user_id = {user_id}"""
     try:
         prepared = session.prepare(query)
@@ -287,5 +283,6 @@ def get_user(session, user_id, timeout=120):
             raise ValueError("No user found with ID: {}".format(user_id))
         return user
     except (InvalidRequest, ReadTimeout, ReadFailure, ValueError) as e:
-        print("Error occurred while fetching the user:", e)
+        if print_error_message:
+            print("Error occurred while fetching the user:", e)
         return None
