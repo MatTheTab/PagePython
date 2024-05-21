@@ -1,11 +1,15 @@
 import tkinter as tk
 import customtkinter as ctk
+import uuid
+import time
 
 from PIL import Image
-import os
-
 from collections import namedtuple
 
+from cassandra.cluster import Cluster
+from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
+
+from utils.query_utils import *
 
 DARK_MODE = "dark"
 ctk.set_appearance_mode(DARK_MODE)
@@ -17,28 +21,28 @@ WINDOW_HEIGHT = 600
 FRAME_WIDTH = 750
 FRAME_HEIGHT = 600
 
-Reservation = namedtuple('Reservation', ['id', 'user_id', 'book_name', 'book_id'])
+Reservation = namedtuple('Reservation', ['id', 'user_id', 'user_name', 'book_name', 'book_id'])
 reservations = [
-    Reservation(1, 101, "To Kill a Mockingbird", 1001),
-    Reservation(2, 102, "1984", 1002),
-    Reservation(3, 103, "The Great Gatsby", 1003),
-    Reservation(4, 104, "The Catcher in the Rye", 1004),
-    Reservation(5, 105, "Moby Dick", 1005),
-    Reservation(6, 106, "Pride and Prejudice", 1006),
-    Reservation(7, 107, "The Lord of the Rings", 1007),
-    Reservation(8, 108, "Jane Eyre", 1008),
-    Reservation(9, 109, "The Hobbit", 1009),
-    Reservation(10, 110, "Fahrenheit 451", 1010),
-    Reservation(11, 111, "Brave New World", 1011),
-    Reservation(12, 112, "Animal Farm", 1012),
-    Reservation(13, 113, "War and Peace", 1013),
-    Reservation(14, 114, "Crime and Punishment", 1014),
-    Reservation(15, 115, "Wuthering Heights", 1015),
-    Reservation(16, 116, "The Odyssey", 1016),
-    Reservation(17, 117, "Great Expectations", 1017),
-    Reservation(18, 118, "Little Women", 1018),
-    Reservation(19, 119, "Harry Potter and the Sorcerer's Stone", 1019),
-    Reservation(20, 120, "The Chronicles of Narnia", 1020)
+    Reservation(1, 101, "John", "To Kill a Mockingbird", 1001),
+    Reservation(2, 102, "John", "1984", 1002),
+    Reservation(3, 103, "John", "The Great Gatsby", 1003),
+    Reservation(4, 104, "John", "The Catcher in the Rye", 1004),
+    Reservation(5, 105, "John", "Moby Dick", 1005),
+    Reservation(6, 106, "John", "Pride and Prejudice", 1006),
+    Reservation(7, 107, "John", "The Lord of the Rings", 1007),
+    Reservation(8, 108, "John", "Jane Eyre", 1008),
+    Reservation(9, 109, "John", "The Hobbit", 1009),
+    Reservation(10, 110, "John", "Fahrenheit 451", 1010),
+    Reservation(11, 111, "John", "Brave New World", 1011),
+    Reservation(12, 112, "John", "Animal Farm", 1012),
+    Reservation(13, 113, "John", "War and Peace", 1013),
+    Reservation(14, 114, "John", "Crime and Punishment", 1014),
+    Reservation(15, 115, "John", "Wuthering Heights", 1015),
+    Reservation(16, 116, "John", "The Odyssey", 1016),
+    Reservation(17, 117, "John", "Great Expectations", 1017),
+    Reservation(18, 118, "John", "Little Women", 1018),
+    Reservation(19, 119, "John", "Harry Potter and the Sorcerer's Stone", 1019),
+    Reservation(20, 120, "John", "The Chronicles of Narnia", 1020)
 ]
 
 def find_available_id(reservations):
@@ -105,19 +109,17 @@ class UpdateFrame(ctk.CTkFrame):
             text += val + " "
         print("Update:", text)
 
-    
-
 class ScrollableList(ctk.CTkScrollableFrame):
     # TODO
     def __init__(self, master, **kwargs):
         super().__init__(master, width=FRAME_WIDTH, height=FRAME_HEIGHT, **kwargs)
-        self.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        self.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
         
         self.label_list = []
         self.button_list = []
 
         # Define the view column widths and headers
-        self.headers = ['ID', 'User_ID', 'Book_name', 'Book_ID']
+        self.headers = ['ID', 'User_ID', 'User_name', 'Book_name', 'Book_ID']
 
         for col_index, header in enumerate(self.headers):
             header_label = ctk.CTkLabel(self, text=header, font=("Calibri", 19, 'bold'), fg_color="transparent")
@@ -125,11 +127,11 @@ class ScrollableList(ctk.CTkScrollableFrame):
         
 
     def add_item(self, item):
-        delete_button = ctk.CTkButton(self, fg_color="#b33232", text="Delete", width=100, height=24, command=lambda: self.delete_reservation(item))
-        delete_button.grid(row=len(self.button_list)+1, column=4, padx=(0, 25), pady=(5, 5))
+        delete_button = ctk.CTkButton(self, fg_color="#b33232", text="Cancel", width=100, height=24, command=lambda: self.cancel_reservation(item))
+        delete_button.grid(row=len(self.button_list)+1, column=5, padx=(0, 25), pady=(5, 5))
         self.button_list.append(delete_button)
         
-        item_values = [str(item.id), str(item.user_id), item.book_name, str(item.book_id)]
+        item_values = [str(item.id), str(item.user_id), item.user_name, item.book_name, str(item.book_id)]
         row_labels = []
         for col_index, value in enumerate(item_values):
             label = ctk.CTkLabel(self, text=value, font=("Calibri", 17), fg_color="transparent")
@@ -138,7 +140,7 @@ class ScrollableList(ctk.CTkScrollableFrame):
 
         self.label_list.append(row_labels)
 
-    def delete_reservation(self, item):
+    def cancel_reservation(self, item):
         for row_labels, button in zip(self.label_list, self.button_list):
             if item.id == int(row_labels[0].cget("text")):
                 for label in row_labels:
@@ -180,10 +182,10 @@ class App(ctk.CTk):
         bt_frame2.grid(row=2, column=0, padx=20, pady=10)
 
         
-        logo = ctk.CTkImage(light_image=Image.open('imgs/chat.png'), dark_image=Image.open('imgs/chat.png'), size=(100, 100))
+        logo = ctk.CTkImage(light_image=Image.open('PagePython/images/PagePython_logo_2.png'), dark_image=Image.open('PagePython/images/PagePython_logo_2.png'), size=(100, 100))
 
         my_label = ctk.CTkLabel(left_side_panel, text="", image=logo)
-        my_label.grid(row=4, pady=(300, 0), sticky="s")
+        my_label.grid(row=4, pady=(280, 0), sticky="s")
 
         self.right_side_panel = ctk.CTkFrame(main_container)
         self.right_side_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -273,7 +275,18 @@ class App(ctk.CTk):
         App.frames["frame3"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
 
+# if __name__ == "__main__":
+#     app = App()
+#     app.mainloop()
+#     print("Exit App")
+    
 if __name__ == "__main__":
+    cluster = Cluster(['172.19.0.2'])
+    session = cluster.connect()
+
     app = App()
     app.mainloop()
-    print("Exit")
+    print("Exit App")
+        
+    session.shutdown()
+    cluster.shutdown()
