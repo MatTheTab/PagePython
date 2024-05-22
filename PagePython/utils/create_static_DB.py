@@ -18,7 +18,7 @@ if __name__ == "__main__":
     cluster.default_reconnection_policy = ExponentialReconnectionPolicy(base_delay=1, max_delay=60, max_attempts=60)
 
     # DEBUG purpose: Set up DB
-    create_keyspace(session, 0, 0, 0)
+    create_keyspace(session)
     session.set_keyspace('library_keyspace')
     print("Created library_keyspace")
     create_reservations_table(session)
@@ -37,8 +37,10 @@ if __name__ == "__main__":
         book_id = uuid.uuid4()
         book_ids.append(book_id)
         batch_books.add(insert_statement_books, (book_id, f'Book {i+1}', False))
-    session.execute(batch_books)
-
+    try:
+        session.execute(batch_books, timeout=120)
+    except InvalidRequest as e:
+        raise e
     
     user_ids = []
     insert_statement_users = session.prepare("""
@@ -49,7 +51,10 @@ if __name__ == "__main__":
         user_id = uuid.uuid4()
         user_ids.append(user_id)
         batch_users.add(insert_statement_users, (user_id, f'User {i+1}', []))
-    session.execute(batch_users)
+    try:
+        session.execute(batch_users, timeout=120)
+    except InvalidRequest as e:
+        raise e
 
     
     add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", "Book 1", book_ids[0])

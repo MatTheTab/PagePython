@@ -1,10 +1,14 @@
+import os
 import tkinter as tk
 import customtkinter as ctk
 
 from PIL import Image
-import os
-
 from collections import namedtuple
+
+from cassandra.cluster import Cluster, BatchStatement
+from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
+
+from utils.query_utils import *
 
 
 DARK_MODE = "dark"
@@ -153,6 +157,51 @@ class ScrollableList(ctk.CTkScrollableFrame):
     def label_list_event(self, item: Reservation):
         print(f"Reservation clicked: {item.id}, {item.user_id}, {item.user_name}, {item.book_name}, {item.book_id}")
             
+            
+class ScrollableListTests(ctk.CTkScrollableFrame):
+    # TODO
+    def __init__(self, master, **kwargs):
+        super().__init__(master, width=FRAME_WIDTH, height=FRAME_HEIGHT, **kwargs)
+
+        tests_header_label = ctk.CTkLabel(self, text="Run tests", font=("Calibri", 20, 'bold'), fg_color="transparent")
+        tests_header_label.grid(row=0, column=0, padx=0, pady=(0, 10))
+
+        stress_test_labels = [
+            "Stress test 1: Make the same request 10,000 times.",
+            "Stress test 2: Two or clients make the possible requests randomly 10,000 times.",
+            "Stress test 3: Immediate occupancy of all reservations by 2 clients.",
+            "Stress test 4: Constant cancellations and seat occupancy for the same seat 10,000 times",
+            "Stress test 5: Update of 1000 reservations"
+        ]
+
+        commands = [self.stress_test1, self.stress_test2, self.stress_test3, self.stress_test4, self.stress_test5]
+
+        for i, test in enumerate(zip(stress_test_labels, commands), start=1):
+            test_label = test[0]
+            command = test[1]
+
+            label_stress_test = ctk.CTkLabel(self, text=test_label, font=("Calibri", 17), fg_color="transparent")
+            label_stress_test.grid(row=2*i-1, column=0, padx=(0, 15), pady=5, sticky="w")
+
+            stress_test = ctk.CTkButton(self, text="Run", command=command)
+            stress_test.grid(row=2*i, column=0, padx=0, pady=(5, 15), sticky="w")
+        
+    def stress_test1(self):
+        print(f"Test 1")
+
+    def stress_test2(self):
+        print(f"Test 2")
+
+    def stress_test3(self):
+        print(f"Test 3")
+
+    def stress_test4(self):
+        print(f"Test 4")
+
+    def stress_test5(self):
+        print(f"Test 5")
+
+
 class App(ctk.CTk):
     frames = {"frame1": None, "frame2": None, "frame3": None}
 
@@ -183,7 +232,7 @@ class App(ctk.CTk):
         logo = ctk.CTkImage(light_image=Image.open('PagePython/images/PagePython_logo_2.png'), dark_image=Image.open('PagePython/images/PagePython_logo_2.png'), size=(100, 100))
 
         my_label = ctk.CTkLabel(left_side_panel, text="", image=logo)
-        my_label.grid(row=4, pady=(270, 0), sticky="s")
+        my_label.grid(row=4, pady=(280, 0), sticky="s")
 
         self.right_side_panel = ctk.CTkFrame(main_container)
         self.right_side_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -216,46 +265,8 @@ class App(ctk.CTk):
         # TODO
         App.frames['frame3'] = ctk.CTkFrame(main_container, fg_color="transparent")
         
-        tests_header_label = ctk.CTkLabel(App.frames['frame3'], text="Run tests", font=("Calibri", 20, 'bold'), fg_color="transparent")
-        tests_header_label.grid(row=0, column=0, padx=0, pady=(0, 10))
-
-        stress_test_labels = [
-            "Stress test 1: Make the same request 10,000 times.",
-            "Stress test 2: Two or clients make the possible requests randomly 10,000 times.",
-            "Stress test 3: Immediate occupancy of all reservations by 2 clients.",
-            "Stress test 4: Constant cancellations and seat occupancy for the same seat 10,000 times",
-            "Stress test 5: Update of 1000 reservations"
-        ]
-
-        commands = [self.stress_test1, self.stress_test2, self.stress_test3, self.stress_test4, self.stress_test5]
-
-        for i, test in enumerate(zip(stress_test_labels, commands), start=1):
-            test_label = test[0]
-            command = test[1]
-
-            label_stress_test = ctk.CTkLabel(App.frames['frame3'], text=test_label, font=("Calibri", 17), fg_color="transparent")
-            label_stress_test.grid(row=2*i-1, column=0, padx=(0, 15), pady=5, sticky="w")
-
-            stress_test = ctk.CTkButton(App.frames['frame3'], text="Run", command=command)
-            stress_test.grid(row=2*i, column=0, padx=0, pady=(5, 15), sticky="w")
-
-    def stress_test1(self):
-        print(f"Test 1")
-
-    def stress_test2(self):
-        print(f"Test 2")
-
-    def stress_test3(self):
-        print(f"Test 3")
-
-    def stress_test4(self):
-        print(f"Test 4")
-
-    def stress_test5(self):
-        print(f"Test 5")
-
-    def label_list_event(self, item):
-        print(f"label frame clicked: {item}")
+        self.scrollable_list = ScrollableListTests(master=App.frames['frame3'], corner_radius=0)
+        self.scrollable_list.pack(padx=(20, 0), pady=0)
 
     def frame1_selector(self):
         App.frames["frame2"].pack_forget()
@@ -277,3 +288,17 @@ if __name__ == "__main__":
     app = App()
     app.mainloop()
     print("Exit")
+
+# if __name__ == "__main__":
+#     cluster = Cluster(['172.19.0.2'])
+#     session = cluster.connect()
+
+#     cluster.default_retry_policy = RetryPolicy()
+#     cluster.default_reconnection_policy = ExponentialReconnectionPolicy(base_delay=1, max_delay=60, max_attempts=60)
+
+#     app = App()
+#     app.mainloop()
+#     print("Exit")
+
+#     session.shutdown()
+#     cluster.shutdown()
