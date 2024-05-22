@@ -10,7 +10,15 @@ from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
 
 from utils.query_utils import *
 
+# SET SESSION ##############################
+cluster = Cluster(['172.19.0.2'])
+session = cluster.connect()
+session.set_keyspace('library_keyspace')
 
+cluster.default_retry_policy = RetryPolicy()
+cluster.default_reconnection_policy = ExponentialReconnectionPolicy(base_delay=1, max_delay=60, max_attempts=60)
+
+# SET WINDOW ##############################
 DARK_MODE = "dark"
 ctk.set_appearance_mode(DARK_MODE)
 ctk.set_default_color_theme("dark-blue")
@@ -115,32 +123,53 @@ class ScrollableList(ctk.CTkScrollableFrame):
     # TODO
     def __init__(self, master, **kwargs):
         super().__init__(master, width=FRAME_WIDTH, height=FRAME_HEIGHT, **kwargs)
-        self.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
+        self.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
         
         self.label_list = []
         self.button_list = []
+        self.id_button_list = []
 
         # Define the view column widths and headers
-        self.headers = ['ID', 'User_ID', 'User_name', 'Book_name', 'Book_ID']
+        self.headers = ['Reservation ID', 'User ID', 'User name', 'Book name', 'Book ID']
 
         for col_index, header in enumerate(self.headers):
             header_label = ctk.CTkLabel(self, text=header, font=("Calibri", 19, 'bold'), fg_color="transparent")
             header_label.grid(row=0, column=col_index, padx=0, pady=(0, 10), sticky="w")
         
-
     def add_item(self, item):
-        delete_button = ctk.CTkButton(self, fg_color="#b33232", text="Cancel", width=100, height=24, command=lambda: self.cancel_reservation(item))
-        delete_button.grid(row=len(self.button_list)+1, column=5, padx=(0, 25), pady=(5, 5))
+        id_button = ctk.CTkButton(self, fg_color="blue", text="Get IDs", width=70, height=24, command=lambda: self.get_reservation_id(item))
+        id_button.grid(row=len(self.button_list)+1, column=5, padx=(0, 5))
+        self.id_button_list.append(id_button)
+
+        delete_button = ctk.CTkButton(self, fg_color="#b33232", text="Cancel", width=70, height=24, command=lambda: self.cancel_reservation(item))
+        delete_button.grid(row=len(self.button_list)+1, column=6, padx=(0, 25), pady=(5, 5))
         self.button_list.append(delete_button)
         
-        item_values = [str(item.id), str(item.user_id), item.user_name, item.book_name, str(item.book_id)]
+        item_values = [str(item.reservation_id), str(item.user_id), item.user_name, item.book_name, str(item.book_id)]
         row_labels = []
         for col_index, value in enumerate(item_values):
             label = ctk.CTkLabel(self, text=value, font=("Calibri", 17), fg_color="transparent")
-            label.grid(row=len(self.label_list) + 1, column=col_index, sticky="w")
+            label.grid(row=len(self.label_list) + 1, column=col_index, sticky="w", pady=(5, 5))
+            label.configure(wraplength=80)
             row_labels.append(label)
 
         self.label_list.append(row_labels)
+
+    def update_view(self, reservations):
+        for row_labels, button, id_button in zip(self.label_list, self.button_list, self.id_button_list):
+            for label in row_labels:
+                label.destroy()
+
+            self.label_list.remove(row_labels)
+
+            button.destroy()
+            self.button_list.remove(button)
+
+            id_button.destroy()
+            self.id_button_list.remove(id_button)
+            
+        for res in reservations:
+            self.add_item(res)
 
     def cancel_reservation(self, item):
         for row_labels, button in zip(self.label_list, self.button_list):
@@ -154,9 +183,11 @@ class ScrollableList(ctk.CTkScrollableFrame):
                 self.button_list.remove(button)
                 return
             
-    def label_list_event(self, item: Reservation):
-        print(f"Reservation clicked: {item.id}, {item.user_id}, {item.user_name}, {item.book_name}, {item.book_id}")
-            
+    def get_reservation_id(self, item):
+        print("IDs:")
+        print("Reservation:", item.reservation_id)
+        print("User:", item.user_id)
+        print("Book:", item.book_id)
             
 class ScrollableListTests(ctk.CTkScrollableFrame):
     # TODO
@@ -207,6 +238,7 @@ class App(ctk.CTk):
 
     def __init__(self):
         super().__init__()
+
         self.title("Distributed Library")
         self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
@@ -219,13 +251,13 @@ class App(ctk.CTk):
         left_side_panel.pack(side=tk.LEFT, fill=tk.Y, expand=False, padx=10, pady=10)
 
         # buttons to select the frames
-        bt_frame1 = ctk.CTkButton(left_side_panel, text="Reservations", font=("Calibri", 15, 'bold'), command=self.frame1_selector)
+        bt_frame1 = ctk.CTkButton(left_side_panel, text="Reservations", font=("Calibri", 15, 'bold'), command=self.select_updates_frame)
         bt_frame1.grid(row=0, column=0, padx=20, pady=10)
 
-        bt_frame2 = ctk.CTkButton(left_side_panel, text="View", font=("Calibri", 15, 'bold'), command=self.frame2_selector)
+        bt_frame2 = ctk.CTkButton(left_side_panel, text="View", font=("Calibri", 15, 'bold'), command=self.select_view_frame)
         bt_frame2.grid(row=1, column=0, padx=20, pady=10)
 
-        bt_frame2 = ctk.CTkButton(left_side_panel, text="Tests", font=("Calibri", 15, 'bold'), command=self.frame3_selector)
+        bt_frame2 = ctk.CTkButton(left_side_panel, text="Tests", font=("Calibri", 15, 'bold'), command=self.select_tests_frame)
         bt_frame2.grid(row=2, column=0, padx=20, pady=10)
 
         
@@ -241,44 +273,43 @@ class App(ctk.CTk):
         self.right_side_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
         # Reservations elements ##############################################################################
-        # TODO
         App.frames['frame1'] = ctk.CTkFrame(main_container, fg_color="transparent")
     
-        self.checkbox_frame_1 = ReservationFrame(App.frames['frame1'])
-        self.checkbox_frame_1.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.reservation_frame = ReservationFrame(App.frames['frame1'])
+        self.reservation_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
-        self.checkbox_frame_2 = UpdateFrame(App.frames['frame1'])
-        self.checkbox_frame_2.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        self.update_frame = UpdateFrame(App.frames['frame1'])
+        self.update_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
 
         # View elements ######################################################################################
-        # TODO
         App.frames['frame2'] = ctk.CTkFrame(main_container, fg_color="transparent")
         
         self.scrollable_list = ScrollableList(master=App.frames['frame2'], corner_radius=0)
         self.scrollable_list.pack(padx=(20, 0), pady=0)
-        for res in reservations:
+        self.scrollable_list.reservations = get_all_reservations(session)
+        for res in self.scrollable_list.reservations:
             self.scrollable_list.add_item(res)
         
 
         # Tests elements #####################################################################################
-        # TODO
         App.frames['frame3'] = ctk.CTkFrame(main_container, fg_color="transparent")
         
-        self.scrollable_list = ScrollableListTests(master=App.frames['frame3'], corner_radius=0)
-        self.scrollable_list.pack(padx=(20, 0), pady=0)
+        self.scrollable_list_tests = ScrollableListTests(master=App.frames['frame3'], corner_radius=0)
+        self.scrollable_list_tests.pack(padx=(20, 0), pady=0)
 
-    def frame1_selector(self):
+    def select_updates_frame(self):
         App.frames["frame2"].pack_forget()
         App.frames["frame3"].pack_forget()
         App.frames["frame1"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-    def frame2_selector(self):
+    def select_view_frame(self):
+        self.scrollable_list.update_view(get_all_reservations(session, 10))
         App.frames["frame1"].pack_forget()
         App.frames["frame3"].pack_forget()
         App.frames["frame2"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-    def frame3_selector(self):
+    def select_tests_frame(self):
         App.frames["frame1"].pack_forget()
         App.frames["frame2"].pack_forget()
         App.frames["frame3"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
@@ -289,16 +320,10 @@ if __name__ == "__main__":
     app.mainloop()
     print("Exit")
 
+    session.shutdown()
+    cluster.shutdown()
+
 # if __name__ == "__main__":
-#     cluster = Cluster(['172.19.0.2'])
-#     session = cluster.connect()
-
-#     cluster.default_retry_policy = RetryPolicy()
-#     cluster.default_reconnection_policy = ExponentialReconnectionPolicy(base_delay=1, max_delay=60, max_attempts=60)
-
 #     app = App()
 #     app.mainloop()
 #     print("Exit")
-
-#     session.shutdown()
-#     cluster.shutdown()
