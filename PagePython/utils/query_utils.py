@@ -49,7 +49,7 @@ def create_reservations_table(session, timeout = 120):
             user_id UUID,
             user_name TEXT,
             book_name TEXT,
-            book_id INT,
+            book_id UUID,
             PRIMARY KEY (reservation_id)
         );
     """
@@ -71,7 +71,7 @@ def create_users_table(session, timeout = 120):
         CREATE TABLE IF NOT EXISTS users (
             user_id UUID,
             user_name TEXT,
-            reservation_ids_list LIST<TEXT>,
+            reservation_ids_list LIST<UUID>,
             PRIMARY KEY (user_id)
         );
     """
