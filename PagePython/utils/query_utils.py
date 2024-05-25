@@ -168,7 +168,7 @@ def add_reservation(session, reservation_id, user_id, user_name, book_name, book
     except InvalidRequest as e:
         print("Error occurred while inserting reservation:", e)
 
-def update_reservation(session, reservation_id, book_id, timeout = 120):
+def update_reservation_book(session, reservation_id, book_id, timeout = 120):
     update_reservation_query = """
         UPDATE reservations SET book_id = %s, book_name = %s WHERE reservation_id = %s
     """
@@ -178,14 +178,34 @@ def update_reservation(session, reservation_id, book_id, timeout = 120):
         if not book.is_reserved:
             new_book_name = book.book_name
             past_book_id = reservation.book_id
-            user_id = reservation.user_id
             set_book_reserved(session, past_book_id, reserved = False, timeout = timeout)
             set_book_reserved(session, book_id, reserved = True, timeout = timeout)
-            delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
-            add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
             session.execute(update_reservation_query, [book_id, new_book_name, reservation_id], timeout = timeout)
+            return True
     except InvalidRequest as e:
         print("Error occurred while updating a reservation:", e)
+
+    return False
+
+def update_reservation_user(session, reservation_id, user_id, timeout = 120):
+    update_reservation_query = """
+        UPDATE reservations SET user_id = %s, user_name = %s WHERE reservation_id = %s
+    """
+    try:
+        reservation = get_reservation_by_id(session, reservation_id, timeout = timeout)
+        old_user_id = reservation.user_id
+
+        new_user = get_user(session, user_id, timeout = timeout)
+        new_user_name = new_user.user_name
+        delete_user_reservation(session, old_user_id, reservation_id, timeout = timeout)
+        add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
+        session.execute(update_reservation_query, [user_id, new_user_name, reservation_id], timeout = timeout)
+        return True
+    except InvalidRequest as e:
+        print("Error occurred while updating a reservation:", e)
+
+    return False
+
 
 def update_username(session, user_id, user_name, timeout = 120):
     update_user_name_reservation_query = """

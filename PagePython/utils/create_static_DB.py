@@ -62,9 +62,9 @@ if __name__ == "__main__":
     add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", "Book 3", book_ids[2])
     add_reservation(session, uuid.uuid4(), user_ids[1], "User 2", "Book 4", book_ids[3])
     add_reservation(session, uuid.uuid4(), user_ids[1], "User 2", "Book 5", book_ids[4])
-    add_reservation(session, uuid.uuid4(), user_ids[2], "User 3", "Book 5", book_ids[5])
-    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", "Book 5", book_ids[6])
-    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", "Book 6", book_ids[7])
+    add_reservation(session, uuid.uuid4(), user_ids[2], "User 3", "Book 6", book_ids[5])
+    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", "Book 7", book_ids[6])
+    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", "Book 8", book_ids[7])
 
     
     print("RESERVATIONS:")
