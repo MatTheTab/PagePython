@@ -195,12 +195,14 @@ def update_reservation_user(session, reservation_id, user_id, timeout = 120):
         reservation = get_reservation_by_id(session, reservation_id, timeout = timeout)
         old_user_id = reservation.user_id
 
-        new_user = get_user(session, user_id, timeout = timeout)
-        new_user_name = new_user.user_name
-        delete_user_reservation(session, old_user_id, reservation_id, timeout = timeout)
-        add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
-        session.execute(update_reservation_query, [user_id, new_user_name, reservation_id], timeout = timeout)
-        return True
+        if old_user_id != user_id:
+            new_user = get_user(session, user_id, timeout = timeout)
+            new_user_name = new_user.user_name
+            delete_user_reservation(session, old_user_id, reservation_id, timeout = timeout)
+            add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
+            session.execute(update_reservation_query, [user_id, new_user_name, reservation_id], timeout = timeout)
+            return True
+        
     except InvalidRequest as e:
         print("Error occurred while updating a reservation:", e)
 
