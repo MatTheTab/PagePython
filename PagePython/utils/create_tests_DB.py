@@ -9,7 +9,7 @@ from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
 from query_utils import *
 
 if __name__ == "__main__":
-    cluster = Cluster(['172.19.0.2'])
+    cluster = Cluster(['172.22.0.2'])
     session = cluster.connect()
     
     cluster.default_retry_policy = RetryPolicy()
