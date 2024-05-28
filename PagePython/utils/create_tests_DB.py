@@ -82,17 +82,17 @@ if __name__ == "__main__":
     print("Adding reservations")
 
     ## Use this code for testing updating all (1000) reservations
-    # res_count = 1000
-    # for book_id, book_name in zip(book_ids, book_names):
-    #     if res_count == 0:
-    #         break
+    res_count = 1000
+    for book_id, book_name in zip(book_ids, book_names):
+        if res_count == 0:
+            break
 
-    #     id = random.randint(0, len(user_ids)-1)
-    #     user_id = user_ids[id]
-    #     user_name = user_names[id]
+        id = random.randint(0, len(user_ids)-1)
+        user_id = user_ids[id]
+        user_name = user_names[id]
 
-    #     add_reservation(session, uuid.uuid4(), user_id, user_name, book_name, book_id)
-    #     res_count -= 1
+        add_reservation(session, uuid.uuid4(), user_id, user_name, book_name, book_id)
+        res_count -= 1
     
     # Use this for remaining tests
     add_reservation(session, uuid.uuid4(), user_ids[-1], user_names[-1], book_name, book_id)

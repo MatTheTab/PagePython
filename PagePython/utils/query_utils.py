@@ -29,7 +29,6 @@ import uuid
 # - get_user(session, user_id, timeout=120) -> retrieves a user based on user_id from the users table
 
 
-#TODO: Potentially set the below values for W, R, N
 def create_keyspace(session, replication_factor = 2, timeout = 120):
     keyspace_query = """
         CREATE KEYSPACE IF NOT EXISTS library_keyspace 
