@@ -185,7 +185,7 @@ def update_reservation_user(session, reservation_id, user_id, user_name, timeout
         book_id = reservation.book_id
         cancel_user_reservation(session, prev_user_id, reservation_id, timeout = timeout)
         add_user(session, reservation_id, user_id, user_name, book_name, book_id, timeout=timeout)
-        session.execute(update_reservation_query, [user_id, reservation_id], timeout = timeout)
+        session.execute(update_reservation_query, [user_id, user_name, reservation_id], timeout = timeout)
     except (InvalidRequest, SyntaxException) as e:
         print("Error occurred while updating a reservation:", e)
 

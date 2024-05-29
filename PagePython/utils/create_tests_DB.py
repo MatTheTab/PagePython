@@ -56,9 +56,9 @@ if __name__ == "__main__":
     print("Adding users")
     user_ids = []
     user_names = []
-    insert_statement_users = session.prepare("""
-        INSERT INTO users (user_id, user_name, reservation_ids_list) VALUES (?, ?, ?)
-    """)
+    #insert_statement_users = session.prepare("""
+    #    INSERT INTO users (user_id, user_name, reservation_ids_list) VALUES (?, ?, ?)
+    #""")
     for i in range(10):
         batch_users = BatchStatement()
         for j in range(10):
@@ -66,17 +66,17 @@ if __name__ == "__main__":
             user_ids.append(user_id)
             user_name = f'User {i*10+j+1}'
             user_names.append(user_name)
-            batch_users.add(insert_statement_users, (user_id, user_name, []))
-        try:
-            session.execute(batch_users, timeout=120)
-        except InvalidRequest as e:
-            raise e
+            #batch_users.add(insert_statement_users, (user_id, user_name, []))
+        #try:
+        #    session.execute(batch_users, timeout=120)
+        #except InvalidRequest as e:
+        #    raise e
 
     user_id = uuid.uuid4()
     user_ids.append(user_id)
     user_name = "User 101"
     user_names.append(user_name)
-    add_user(session, user_id, user_name)
+    #add_user(session, user_id, user_name)
 
     # Add reservations   
     print("Adding reservations")
