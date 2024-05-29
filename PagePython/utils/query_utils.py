@@ -13,14 +13,15 @@ import uuid
 # - delete_users_table(session, timeout = 120) -> deletes the users table
 # - set_book_reserved(session, book_id, reserved, timeout=120) -> set the book's reserved status, reserved can be 1 or 0
 # - add_book(session, book_id, book_name, is_reserved, timeout = 120) -> insert query into books with specified values
-# - add_user(session, user_id, user_name, reservation_ids, timeout = 120) -> insert query into users with specified values
-# - add_reservation_to_list(session, user_id, reservation_id, timeout = 120) -> add a reservation to the list of user reservations
-# - append_user_reservation(session, user_id, user_name, reservation_id, timeout = 120) -> (use this to add a reservation, if user may not yet exist) add a reservation to the list of user reservations, but if no user is found, a new list of reservations is created
+# - add_user(session, reservation_id, user_id, user_name, book_name, book_id, timeout = 120) -> insert query into users with specified values
 # - add_reservation(session, reservation_id, user_id, user_name, book_name, book_id, timeout = 120) -> handles everything related to adding a new reservation (changes the reservations, users and books tables)
-# - update_reservation(session, reservation_id, book_id, timeout = 120) -> handles everything related to updating which book was selected in a reservation (allows to change the book_id for a reservation), chnages the reservations, users and books tables
-# - update_username(session, user_id, user_name, timeout = 120) -> Allows for changing of the username
-# - delete_user_reservation(session, user_id, reservation_id, timeout = 120) -> deletes a reservation from list of user's reservations in users table
-# - cancel_reservation(session, reservation_id, timeout = 120) -> handles everything related to cancelling the reservation by chosen reservation_id
+# - update_reservation(session, reservation_id, book_id, timeout = 120) -> changes which book was reserved
+# - update_reservation_user(session, reservation_id, user_id, user_name, timeout = 120) -> updates which user made the reservation
+# - update_username(session, user_id, user_name, timeout = 120) -> DEPRICATED Allows for changing of the username
+# - cancel_reservation(session, reservation_id, timeout = 120) -> cancels reservation based on id
+# - cancel_user(session, user_id, timeout = 120) -> cancels user based on user_id
+# - cancel_user_reservation(session, user_id, reservation_id, timeout = 120) -> cancels user's reservation in the user's table based on reservaion_id and user_id
+# - update_user_reservation(session, user_id, reservation_id, book_id, book_name, timeout = 120) -> update the users table
 # - get_all_reservations(session, timeout = 120) -> retrieves all reservations from the reservations table
 # - get_all_users(session, timeout = 120) -> retrieves all users from the users table
 # - get_all_books(session, timeout = 120) -> retreieves all books from the books table
@@ -69,10 +70,12 @@ def create_books_table(session, timeout = 120):
 def create_users_table(session, timeout = 120):
     users_table_query = """
         CREATE TABLE IF NOT EXISTS users (
+            reservation_id UUID,
             user_id UUID,
             user_name TEXT,
-            reservation_ids_list LIST<UUID>,
-            PRIMARY KEY (user_id)
+            book_name TEXT,
+            book_id UUID,
+            PRIMARY KEY (user_id, reservation_id)
         );
     """
     session.execute(users_table_query, timeout = timeout)
@@ -126,33 +129,15 @@ def add_book(session, book_id, book_name, is_reserved, timeout = 120):
     except InvalidRequest as e:
         print("Error Occured while inserting a new book to the table: ", e)
 
-def add_user(session, user_id, user_name, timeout = 120):
+def add_user(session, reservation_id, user_id, user_name, book_name, book_id, timeout = 120):
     insert_user_query = """
-        INSERT INTO users (user_id, user_name)
-        VALUES (%s, %s);
+        INSERT INTO users (reservation_id, user_id, user_name, book_name, book_id)
+        VALUES (%s, %s, %s, %s, %s);
     """
     try:
-        session.execute(insert_user_query, [user_id, user_name], timeout = timeout)
+        session.execute(insert_user_query, [reservation_id, user_id, user_name, book_name, book_id], timeout = timeout)
     except InvalidRequest as e:
         print("Error Occured while inserting a new user to the table: ", e)
-
-def add_reservation_to_list(session, user_id, reservation_id, timeout = 120):
-    book_list_update_query = f"""UPDATE users SET reservation_ids_list = reservation_ids_list + [{reservation_id}] WHERE user_id = {user_id}"""
-    try:
-        session.execute(book_list_update_query, timeout = timeout)
-    except InvalidRequest as e:
-        print("Error Occured while appending a book to list: ", e)
-        raise e
-        
-def append_user_reservation(session, user_id, user_name, reservation_id, timeout = 120):
-    try:
-        user = get_user(session, user_id, timeout = timeout, print_error_message = False)
-        if user is None:
-            add_user(session, user_id, user_name, timeout = timeout)
-        add_reservation_to_list(session, user_id, reservation_id, timeout=timeout)
-    except InvalidRequest as e:
-        print("Error Occured while adding a reservation to the user's reservation list: ", e)
-        raise e
 
 def add_reservation(session, reservation_id, user_id, user_name, book_name, book_id, timeout = 120):
     insert_reservation_query = """
@@ -163,12 +148,12 @@ def add_reservation(session, reservation_id, user_id, user_name, book_name, book
         book = get_book(session, book_id = book_id)
         if book is not None and not book.is_reserved:
             set_book_reserved(session, book_id=book_id, reserved = True, timeout = timeout)
-            append_user_reservation(session, user_id, user_name, reservation_id, timeout = timeout)
+            add_user(session, reservation_id=reservation_id, user_id=user_id, user_name=user_name, book_name=book_name, book_id=book_id, timeout=timeout)
             session.execute(insert_reservation_query, [reservation_id, user_id, user_name, book_name, book_id], timeout=timeout)
     except InvalidRequest as e:
         print("Error occurred while inserting reservation:", e)
 
-def update_reservation_book(session, reservation_id, book_id, timeout = 120):
+def update_reservation(session, reservation_id, book_id, timeout = 120):
     update_reservation_query = """
         UPDATE reservations SET book_id = %s, book_name = %s WHERE reservation_id = %s
     """
@@ -178,8 +163,10 @@ def update_reservation_book(session, reservation_id, book_id, timeout = 120):
         if book is not None and reservation is not None and not book.is_reserved:
             new_book_name = book.book_name
             past_book_id = reservation.book_id
+            user_id = reservation.user_id
             set_book_reserved(session, past_book_id, reserved = False, timeout = timeout)
             set_book_reserved(session, book_id, reserved = True, timeout = timeout)
+            update_user_reservation(session, user_id, reservation_id, book_id, new_book_name, timeout=timeout)
             session.execute(update_reservation_query, [book_id, new_book_name, reservation_id], timeout = timeout)
             return True
     except (InvalidRequest, SyntaxException) as e:
@@ -187,52 +174,38 @@ def update_reservation_book(session, reservation_id, book_id, timeout = 120):
 
     return False
 
-def update_reservation_user(session, reservation_id, user_id, timeout = 120):
+def update_reservation_user(session, reservation_id, user_id, user_name, timeout = 120):
     update_reservation_query = """
         UPDATE reservations SET user_id = %s, user_name = %s WHERE reservation_id = %s
     """
     try:
-        reservation = get_reservation_by_id(session, reservation_id, timeout = timeout)
-        old_user_id = reservation.user_id
-
-        if old_user_id != user_id:
-            new_user = get_user(session, user_id, timeout = timeout)
-            new_user_name = new_user.user_name
-            delete_user_reservation(session, old_user_id, reservation_id, timeout = timeout)
-            add_reservation_to_list(session, user_id, reservation_id, timeout = timeout)
-            session.execute(update_reservation_query, [user_id, new_user_name, reservation_id], timeout = timeout)
-            return True
-        
+        reservation = get_reservation_by_id(session, reservation_id, timeout=timeout)
+        prev_user_id = reservation.user_id
+        book_name = reservation.book_name
+        book_id = reservation.book_id
+        cancel_user_reservation(session, prev_user_id, reservation_id, timeout = timeout)
+        add_user(session, reservation_id, user_id, user_name, book_name, book_id, timeout=timeout)
+        session.execute(update_reservation_query, [user_id, reservation_id], timeout = timeout)
     except (InvalidRequest, SyntaxException) as e:
         print("Error occurred while updating a reservation:", e)
 
-    return False
 
-
-def update_username(session, user_id, user_name, timeout = 120):
-    update_user_name_reservation_query = """
-        UPDATE reservations SET user_name = %s WHERE reservation_id = %s
-    """
-    update_user_name_query = """
-        UPDATE users SET user_name = %s WHERE user_id = %s
-    """
-    try:
-        all_reservations = get_all_reservations(session, timeout = timeout)
-        for reservation in all_reservations:
-            if reservation.user_id == user_id:
-                user_reservation_id = reservation.reservation_id
-                session.execute(update_user_name_reservation_query, [user_name, user_reservation_id], timeout = timeout)
-        session.execute(update_user_name_query, [user_name, user_id], timeout = timeout)
-    except (InvalidRequest, SyntaxException) as e:
-        print("Error occurred while updating a reservation:", e)
-
-def delete_user_reservation(session, user_id, reservation_id, timeout = 120):
-    user_reservation_delete_query = f"""UPDATE users SET reservation_ids_list = reservation_ids_list - [{reservation_id}] WHERE user_id = {user_id}"""
-    try:
-        session.execute(user_reservation_delete_query, timeout=timeout)
-    except (InvalidRequest, SyntaxException) as e:
-        print("Error occurred while removing reservation ID from user:", e)
-        raise e
+#def update_username(session, user_id, user_name, timeout = 120):
+#    update_user_name_reservation_query = """
+#        UPDATE reservations SET user_name = %s WHERE reservation_id = %s
+#    """
+#    update_user_name_query = """
+#        UPDATE users SET user_name = %s WHERE user_id = %s
+#    """
+#    try:
+#        all_reservations = get_all_reservations(session, timeout = timeout)
+#        for reservation in all_reservations:
+#            if reservation.user_id == user_id:
+#                user_reservation_id = reservation.reservation_id
+#                session.execute(update_user_name_reservation_query, [user_name, user_reservation_id], timeout = timeout)
+#        session.execute(update_user_name_query, [user_name, user_id], timeout = timeout)
+#    except (InvalidRequest, SyntaxException) as e:
+#        print("Error occurred while updating a reservation:", e)
 
 def cancel_reservation(session, reservation_id, timeout = 120):
     reservation_cancel_query = """
@@ -244,10 +217,37 @@ def cancel_reservation(session, reservation_id, timeout = 120):
             user_id = reservation.user_id
             book_id = reservation.book_id
             set_book_reserved(session, book_id, reserved = False, timeout = timeout)
-            delete_user_reservation(session, user_id, reservation_id, timeout = timeout)
+            cancel_user_reservation(session, user_id, reservation_id, timeout=timeout)
             session.execute(reservation_cancel_query, [reservation_id], timeout = timeout)
     except (InvalidRequest, SyntaxException) as e:
         print("Error canceling the reservation: ", e)
+
+def cancel_user(session, user_id, timeout = 120):
+    reservation_cancel_query = """
+        DELETE FROM users WHERE user_id = %s;
+    """
+    try:
+        session.execute(reservation_cancel_query, [user_id], timeout = timeout)
+    except (InvalidRequest, SyntaxException) as e:
+        print("Error removing the user: ", e)
+
+def cancel_user_reservation(session, user_id, reservation_id, timeout = 120):
+    reservation_cancel_query = """
+        DELETE FROM users WHERE user_id = %s AND reservation_id = %s;
+    """
+    try:
+        session.execute(reservation_cancel_query, [user_id, reservation_id], timeout = timeout)
+    except (InvalidRequest, SyntaxException) as e:
+        print("Error removing the user: ", e)
+
+def update_user_reservation(session, user_id, reservation_id, book_id, book_name, timeout = 120):
+    update_user_query = """
+        UPDATE users SET book_id = %s, book_name = %s WHERE user_id = %s AND reservation_id = %s;
+    """
+    try:
+        session.execute(update_user_query, [book_id, book_name, user_id, reservation_id], timeout = timeout)
+    except (InvalidRequest, SyntaxException) as e:
+        print("Error removing the user: ", e)
 
 def get_all_reservations(session, timeout = 120):
     selection_query = """
@@ -298,6 +298,20 @@ def get_book(session, book_id, timeout=120):
 
 def get_user(session, user_id, timeout=120, print_error_message = True):
     query = f""" SELECT * FROM users WHERE user_id = {user_id}"""
+    try:
+        prepared = session.prepare(query)
+        result = session.execute(prepared, timeout=timeout)
+        user = result.one()
+        if user is None:
+            raise ValueError("No user found with ID: {}".format(user_id))
+        return user
+    except (InvalidRequest, ReadTimeout, ReadFailure, ValueError, SyntaxException) as e:
+        if print_error_message:
+            print("Error occurred while fetching the user:", e)
+        return None
+
+def get_user_reservation(session, user_id, reservation_id, timeout=120, print_error_message = True):
+    query = f""" SELECT * FROM users WHERE user_id = {user_id} and reservation_id = {reservation_id}"""
     try:
         prepared = session.prepare(query)
         result = session.execute(prepared, timeout=timeout)
