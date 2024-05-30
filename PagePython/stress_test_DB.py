@@ -417,6 +417,7 @@ class TestCassandra(unittest.TestCase):
                     # Does not assume book is available
                     try:
                         update_reservation(user_session, reservation.reservation_id, book.book_id)
+
                     except:
                         pass
 
@@ -434,6 +435,9 @@ class TestCassandra(unittest.TestCase):
                     reservation = random.choice(reservations)
                     try:
                         cancel_reservation(user_session, reservation.reservation_id)
+
+                        # Locally update memory to make less errors
+                        reservations.remove(reservation)
                     except:
                         pass
 
