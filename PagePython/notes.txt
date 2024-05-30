@@ -1,0 +1,11 @@
+necessary files:
+
+utils/query_utils
+utils/create_static_DB
+utils/delete_static_DB
+stress_tests
+GUI_customtk
+
+
+UPDATE req:
+unittest
