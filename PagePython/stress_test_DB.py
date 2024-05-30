@@ -87,7 +87,7 @@ class TestCassandra(unittest.TestCase):
 
         start_time = time.time()
 
-        repeat_num = 3 # 10_000
+        repeat_num = 10_000
         for _ in range(repeat_num):
             add_reservation(self.session, reservation_id, user_id, user_name, book_name, book_id)
             cancel_reservation(self.session, reservation_id)
@@ -131,7 +131,7 @@ class TestCassandra(unittest.TestCase):
 
         start_time = time.time()
 
-        repeat_num = 3
+        repeat_num = 10_000
         for _ in range(repeat_num):
             update_reservation(self.session, reservation_id, new_book_id)
         
