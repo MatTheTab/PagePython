@@ -11,7 +11,8 @@ Book = namedtuple('Book', ['book_id', 'book_name', 'is_reserved'])
 User = namedtuple('User', ['user_id', 'user_name', 'reservation_ids_list'])
 
 if __name__ == "__main__":
-    cluster = Cluster(['172.19.0.2'])
+    # cluster = Cluster(['172.19.0.2'])
+    cluster = Cluster(['172.22.0.2'])
     session = cluster.connect()
     
     cluster.default_retry_policy = RetryPolicy()
@@ -28,43 +29,46 @@ if __name__ == "__main__":
     create_users_table(session)
     print("Created users table")
 
+    print("Adding books")
+    # book_ids = []
+    # insert_statement_books = session.prepare("""
+    #     INSERT INTO books (book_id, book_name, is_reserved) VALUES (?, ?, ?)
+    # """)
+    # batch_books = BatchStatement()
+    # for i in range(10):
+    #     book_id = uuid.uuid4()
+    #     book_ids.append(book_id)
+    #     batch_books.add(insert_statement_books, (book_id, f'Book {i+1}', False))
+    # try:
+    #     session.execute(batch_books, timeout=120)
+    # except InvalidRequest as e:
+    #     raise e
     book_ids = []
-    insert_statement_books = session.prepare("""
-        INSERT INTO books (book_id, book_name, is_reserved) VALUES (?, ?, ?)
-    """)
-    batch_books = BatchStatement()
-    for i in range(10):
+    book_names = []
+    for i in range(15):
         book_id = uuid.uuid4()
         book_ids.append(book_id)
-        batch_books.add(insert_statement_books, (book_id, f'Book {i+1}', False))
-    try:
-        session.execute(batch_books, timeout=120)
-    except InvalidRequest as e:
-        raise e
+        book_name = f'Book {i+1}'
+        book_names.append(book_name)
+        add_book(session, book_id, book_name, False)
+
+    print(len(book_ids))
+    print("BOOK", len(list(get_all_books(session))))
     
+    print("Adding reservations")
     user_ids = []
-    insert_statement_users = session.prepare("""
-        INSERT INTO users (user_id, user_name, reservation_ids_list) VALUES (?, ?, ?)
-    """)
-    batch_users = BatchStatement()
     for i in range(5):
         user_id = uuid.uuid4()
         user_ids.append(user_id)
-        batch_users.add(insert_statement_users, (user_id, f'User {i+1}', []))
-    try:
-        session.execute(batch_users, timeout=120)
-    except InvalidRequest as e:
-        raise e
-
     
-    add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", "Book 1", book_ids[0])
-    add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", "Book 2", book_ids[1])
-    add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", "Book 3", book_ids[2])
-    add_reservation(session, uuid.uuid4(), user_ids[1], "User 2", "Book 4", book_ids[3])
-    add_reservation(session, uuid.uuid4(), user_ids[1], "User 2", "Book 5", book_ids[4])
-    add_reservation(session, uuid.uuid4(), user_ids[2], "User 3", "Book 6", book_ids[5])
-    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", "Book 7", book_ids[6])
-    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", "Book 8", book_ids[7])
+    add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", book_names[0], book_ids[0])
+    add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", book_names[1], book_ids[1])
+    add_reservation(session, uuid.uuid4(), user_ids[0], "User 1", book_names[2], book_ids[2])
+    add_reservation(session, uuid.uuid4(), user_ids[1], "User 2", book_names[3], book_ids[3])
+    add_reservation(session, uuid.uuid4(), user_ids[1], "User 2", book_names[4], book_ids[4])
+    add_reservation(session, uuid.uuid4(), user_ids[2], "User 3", book_names[5], book_ids[5])
+    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", book_names[6], book_ids[6])
+    add_reservation(session, uuid.uuid4(), user_ids[3], "User 4", book_names[7], book_ids[7])
 
     
     print("RESERVATIONS:")

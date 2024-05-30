@@ -12,7 +12,8 @@ from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
 from utils.query_utils import *
 
 # SET SESSION ##############################
-cluster = Cluster(['172.19.0.2'])
+# cluster = Cluster(['172.19.0.2'])
+cluster = Cluster(['172.22.0.2'])
 session = cluster.connect()
 session.set_keyspace('library_keyspace')
 
@@ -30,37 +31,6 @@ WINDOW_HEIGHT = 600
 FRAME_WIDTH = 750
 FRAME_HEIGHT = 600
 
-Reservation = namedtuple('Reservation', ['id', 'user_id', 'user_name', 'book_name', 'book_id'])
-reservations = [
-    Reservation(1, 101, "John", "To Kill a Mockingbird", 1001),
-    Reservation(2, 102, "John", "1984", 1002),
-    Reservation(3, 103, "John", "The Great Gatsby", 1003),
-    Reservation(4, 104, "John", "The Catcher in the Rye", 1004),
-    Reservation(5, 105, "John", "Moby Dick", 1005),
-    Reservation(6, 106, "John", "Pride and Prejudice", 1006),
-    Reservation(7, 107, "John", "The Lord of the Rings", 1007),
-    Reservation(8, 108, "John", "Jane Eyre", 1008),
-    Reservation(9, 109, "John", "The Hobbit", 1009),
-    Reservation(10, 110, "John", "Fahrenheit 451", 1010),
-    Reservation(11, 111, "John", "Brave New World", 1011),
-    Reservation(12, 112, "John", "Animal Farm", 1012),
-    Reservation(13, 113, "John", "War and Peace", 1013),
-    Reservation(14, 114, "John", "Crime and Punishment", 1014),
-    Reservation(15, 115, "John", "Wuthering Heights", 1015),
-    Reservation(16, 116, "John", "The Odyssey", 1016),
-    Reservation(17, 117, "John", "Great Expectations", 1017),
-    Reservation(18, 118, "John", "Little Women", 1018),
-    Reservation(19, 119, "John", "Harry Potter and the Sorcerer's Stone", 1019),
-    Reservation(20, 120, "John", "The Chronicles of Narnia", 1020)
-]
-
-def find_available_id(reservations):
-    for i in range(1, len(reservations)+1):
-        if i not in set([x.id for x in reservations]):
-            return i
-
-    return i + 1
-
 class ReservationFrame(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, width=FRAME_WIDTH, height=FRAME_HEIGHT//2, fg_color="transparent")
@@ -69,11 +39,15 @@ class ReservationFrame(ctk.CTkFrame):
         self.header_label = ctk.CTkLabel(self, text="Make a reservation", font=("Calibri", 19, 'bold'), fg_color="transparent")
         self.header_label.grid(row=0, column=0, padx=0, pady=(0, 10))
         
-        for i, value in enumerate(["User ID", "Book ID"], start=1):
+        for i, value in enumerate(["User ID", "User name", "Book ID"], start=1):
             entry_label = ctk.CTkLabel(self, text=value, font=("Calibri", 17), fg_color="transparent")
             entry_label.grid(row=i, column=0, padx=(0, 15), pady=5, sticky="e")
 
-            entry = ctk.CTkEntry(self, placeholder_text="Enter a value", width=300)
+            if i == 2:
+                entry = ctk.CTkEntry(self, placeholder_text="Enter a value or leave empty if user exists already", width=300)
+            else:
+                entry = ctk.CTkEntry(self, placeholder_text="Enter a value", width=300)
+
             entry.grid(row=i, column=1, padx=0, pady=5)
             self.reservation_entries.append(entry)
 
@@ -84,7 +58,8 @@ class ReservationFrame(ctk.CTkFrame):
         reservation_id = uuid.uuid4()
 
         user_id = self.reservation_entries[0].get()
-        book_id = self.reservation_entries[1].get()
+        user_name = self.reservation_entries[1].get()
+        book_id = self.reservation_entries[2].get()
         
         if user_id == "" or book_id == "":
             return None
@@ -93,8 +68,13 @@ class ReservationFrame(ctk.CTkFrame):
         book_id = uuid.UUID(book_id)
         
         book = get_book(session, book_id)
-        user = get_user(session, user_id)
-        add_reservation(session, reservation_id, user_id, user.user_name, book.book_name, book_id)
+
+        # Assume user exists or create new user
+        if user_name == "":
+            user = get_user(session, user_id)
+            add_reservation(session, reservation_id, user_id, user.user_name, book.book_name, book_id)
+        else:
+            add_reservation(session, reservation_id, user_id, user_name, book.book_name, book_id)
 
         print("Reservation added")
 
@@ -140,18 +120,19 @@ class UpdateFrame(ctk.CTkFrame):
         if len(user_id) > 0 and len(book_id) > 0:
             book_id = uuid.UUID(book_id)
             user_id = uuid.UUID(user_id)
-            update_reservation_book(session, reservation_id, book_id)
+            update_reservation(session, reservation_id, book_id)
             update_reservation_user(session, reservation_id, user_id)
             update_successful = True
         
         elif len(book_id) > 0:
             book_id = uuid.UUID(book_id)
-            update_reservation_book(session, reservation_id, book_id)
+            update_reservation(session, reservation_id, book_id)
             update_successful = True
 
         else:
             user_id = uuid.UUID(user_id)
-            update_reservation_user(session, reservation_id, user_id)
+            user = get_user(session, user_id)
+            update_reservation_user(session, reservation_id, user_id, user.user_name)
             update_successful = True
 
         if update_successful: 
@@ -163,7 +144,6 @@ class UpdateFrame(ctk.CTkFrame):
         return None
 
 class ScrollableList(ctk.CTkScrollableFrame):
-    # TODO
     def __init__(self, master, **kwargs):
         super().__init__(master, width=FRAME_WIDTH, height=FRAME_HEIGHT, **kwargs)
         self.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
@@ -255,53 +235,8 @@ class ScrollableList(ctk.CTkScrollableFrame):
         print("User:", item.user_id)
         print("Book:", item.book_id)
 
-
-class ScrollableListTests(ctk.CTkScrollableFrame):
-    # TODO
-    def __init__(self, master, **kwargs):
-        super().__init__(master, width=FRAME_WIDTH, height=FRAME_HEIGHT, **kwargs)
-
-        tests_header_label = ctk.CTkLabel(self, text="Run tests", font=("Calibri", 20, 'bold'), fg_color="transparent")
-        tests_header_label.grid(row=0, column=0, padx=0, pady=(0, 10))
-
-        stress_test_labels = [
-            "Stress test 1: Make the same request 10,000 times.",
-            "Stress test 2: Two or clients make the possible requests randomly 10,000 times.",
-            "Stress test 3: Immediate occupancy of all reservations by 2 clients.",
-            "Stress test 4: Constant cancellations and seat occupancy for the same seat 10,000 times",
-            "Stress test 5: Update of 1000 reservations"
-        ]
-
-        commands = [self.stress_test1, self.stress_test2, self.stress_test3, self.stress_test4, self.stress_test5]
-
-        for i, test in enumerate(zip(stress_test_labels, commands), start=1):
-            test_label = test[0]
-            command = test[1]
-
-            label_stress_test = ctk.CTkLabel(self, text=test_label, font=("Calibri", 17), fg_color="transparent")
-            label_stress_test.grid(row=2*i-1, column=0, padx=(0, 15), pady=5, sticky="w")
-
-            stress_test = ctk.CTkButton(self, text="Run", command=command)
-            stress_test.grid(row=2*i, column=0, padx=0, pady=(5, 15), sticky="w")
-        
-    def stress_test1(self):
-        print(f"Test 1")
-
-    def stress_test2(self):
-        print(f"Test 2")
-
-    def stress_test3(self):
-        print(f"Test 3")
-
-    def stress_test4(self):
-        print(f"Test 4")
-
-    def stress_test5(self):
-        print(f"Test 5")
-
-
 class App(ctk.CTk):
-    frames = {"frame1": None, "frame2": None, "frame3": None}
+    frames = {"frame1": None, "frame2": None}
 
     def __init__(self):
         super().__init__()
@@ -324,9 +259,8 @@ class App(ctk.CTk):
         bt_frame2 = ctk.CTkButton(left_side_panel, text="View", font=("Calibri", 15, 'bold'), command=self.select_view_frame)
         bt_frame2.grid(row=1, column=0, padx=20, pady=10)
 
-        bt_frame2 = ctk.CTkButton(left_side_panel, text="Tests", font=("Calibri", 15, 'bold'), command=self.select_tests_frame)
-        bt_frame2.grid(row=2, column=0, padx=20, pady=10)
-
+        bt_frame3 = ctk.CTkButton(left_side_panel, text="Available books", font=("Calibri", 15, 'bold'), command=self.get_available_books)
+        bt_frame3.grid(row=2, column=0, padx=20, pady=10)
         
         logo = ctk.CTkImage(light_image=Image.open('PagePython/images/PagePython_logo_2.png'), dark_image=Image.open('PagePython/images/PagePython_logo_2.png'), size=(100, 100))
 
@@ -354,28 +288,25 @@ class App(ctk.CTk):
         self.update_frame = UpdateFrame(App.frames['frame1'], self.scrollable_list)
         self.update_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
-        # Tests elements #####################################################################################
-        App.frames['frame3'] = ctk.CTkFrame(main_container, fg_color="transparent")
-        
-        self.scrollable_list_tests = ScrollableListTests(master=App.frames['frame3'], corner_radius=0)
-        self.scrollable_list_tests.pack(padx=(20, 0), pady=0)
+    def get_available_books(self):
+        books = list(get_all_books(session))
+        available_books = [book for book in books if not book.is_reserved]
+
+        print("Available books:")
+        for book in available_books:
+            print(" - Book ID:", book.book_id)
+            print(" - Book Name:", book.book_name)
+            print("--------------------------------")
 
     def select_updates_frame(self):
         App.frames["frame2"].pack_forget()
-        App.frames["frame3"].pack_forget()
         App.frames["frame1"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
     def select_view_frame(self):
         new_reservations = list(get_all_reservations(session, 10))
         self.scrollable_list.update_view(new_reservations)
         App.frames["frame1"].pack_forget()
-        App.frames["frame3"].pack_forget()
         App.frames["frame2"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
-
-    def select_tests_frame(self):
-        App.frames["frame1"].pack_forget()
-        App.frames["frame2"].pack_forget()
-        App.frames["frame3"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
 
 if __name__ == "__main__":
@@ -385,8 +316,3 @@ if __name__ == "__main__":
 
     session.shutdown()
     cluster.shutdown()
-
-# if __name__ == "__main__":
-#     app = App()
-#     app.mainloop()
-#     print("Exit")
