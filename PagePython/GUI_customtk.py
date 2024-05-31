@@ -236,8 +236,62 @@ class ScrollableList(ctk.CTkScrollableFrame):
         print("User:", item.user_id)
         print("Book:", item.book_id)
 
+
+class ScrollableListBooks(ctk.CTkScrollableFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, width=FRAME_WIDTH, height=FRAME_HEIGHT, **kwargs)
+        self.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        
+        self.books = []
+        self.label_list = []
+        self.id_button_list = []
+
+        # Define the view column widths and headers
+        self.headers = ['Book ID', 'Book name', 'Reserved status']
+
+        for col_index, header in enumerate(self.headers):
+            header_label = ctk.CTkLabel(self, text=header, font=("Calibri", 19, 'bold'), fg_color="transparent")
+            header_label.grid(row=0, column=col_index, padx=0, pady=(0, 10), sticky="w")
+
+        self.get_available_button = ctk.CTkButton(self, fg_color="#9f25b8", text="Get Available Books", width=100, height=27, command=lambda: self.get_available_books())
+        self.get_available_button.grid(row=0, column=3, padx=0, pady=(0, 10), sticky="w")
+       
+            
+    def update_view(self, new_books):
+        for row_labels, book in zip(self.label_list, new_books):
+            row_labels[2].configure(text=str(book.is_reserved))
+
+        self.books = new_books
+        
+        if len(self.label_list) == 0:
+            for book in new_books:
+                self.add_item(book)
+
+    def add_item(self, item):
+        id_button = ctk.CTkButton(self, fg_color="blue", text="Get ID", width=70, height=24, command=lambda: print(item.book_name, item.book_id))
+        id_button.grid(row=len(self.id_button_list)+1, column=3, padx=(0, 5))
+        self.id_button_list.append(id_button)
+        
+        item_values = [str(item.book_id), item.book_name, str(item.is_reserved)]
+        row_labels = []
+        for col_index, value in enumerate(item_values):
+            label = ctk.CTkLabel(self, text=value, font=("Calibri", 17), fg_color="transparent")
+            label.grid(row=len(self.label_list) + 1, column=col_index, sticky="w", pady=(5, 5))
+            label.configure(wraplength=80)
+            row_labels.append(label)
+
+        self.label_list.append(row_labels)
+
+    def get_available_books(self):
+        print("Available books:")
+        for book in self.books:
+            if not book.is_reserved:
+                print(" - Book ID:", book.book_id)
+                print(" - Book Name:", book.book_name)
+                print("--------------------------------")
+
 class App(ctk.CTk):
-    frames = {"frame1": None, "frame2": None}
+    frames = {"frame1": None, "frame2": None, "frame3": None}
 
     def __init__(self):
         super().__init__()
@@ -254,13 +308,13 @@ class App(ctk.CTk):
         left_side_panel.pack(side=tk.LEFT, fill=tk.Y, expand=False, padx=10, pady=10)
 
         # buttons to select the frames
-        bt_frame1 = ctk.CTkButton(left_side_panel, text="Reservations", font=("Calibri", 15, 'bold'), command=self.select_updates_frame)
+        bt_frame1 = ctk.CTkButton(left_side_panel, text="Update Reservations", font=("Calibri", 15, 'bold'), command=self.select_updates_frame)
         bt_frame1.grid(row=0, column=0, padx=20, pady=10)
 
-        bt_frame2 = ctk.CTkButton(left_side_panel, text="View", font=("Calibri", 15, 'bold'), command=self.select_view_frame)
+        bt_frame2 = ctk.CTkButton(left_side_panel, text="View Reservations", font=("Calibri", 15, 'bold'), command=self.select_view_frame)
         bt_frame2.grid(row=1, column=0, padx=20, pady=10)
 
-        bt_frame3 = ctk.CTkButton(left_side_panel, text="Available books", font=("Calibri", 15, 'bold'), command=self.get_available_books)
+        bt_frame3 = ctk.CTkButton(left_side_panel, text="View Books", font=("Calibri", 15, 'bold'), command=self.select_books_frame)
         bt_frame3.grid(row=2, column=0, padx=20, pady=10)
         
         logo = ctk.CTkImage(light_image=Image.open('PagePython/images/PagePython_logo_2.png'), dark_image=Image.open('PagePython/images/PagePython_logo_2.png'), size=(100, 100))
@@ -274,7 +328,7 @@ class App(ctk.CTk):
         self.right_side_container = ctk.CTkFrame(self.right_side_panel, fg_color="#000811")
         self.right_side_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
-        # View elements ######################################################################################
+        # View reservations ######################################################################################
         App.frames['frame2'] = ctk.CTkFrame(main_container, fg_color="transparent")
         
         self.scrollable_list = ScrollableList(master=App.frames['frame2'], corner_radius=0)
@@ -288,26 +342,32 @@ class App(ctk.CTk):
         
         self.update_frame = UpdateFrame(App.frames['frame1'], self.scrollable_list)
         self.update_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        
+        # View Books ##############################################################################
+        App.frames['frame3'] = ctk.CTkFrame(main_container, fg_color="transparent")
+        
+        self.scrollable_list_books = ScrollableListBooks(master=App.frames['frame3'], corner_radius=0)
+        self.scrollable_list_books.pack(padx=(20, 0), pady=0)
 
-    def get_available_books(self):
-        books = list(get_all_books(session))
-        available_books = [book for book in books if not book.is_reserved]
-
-        print("Available books:")
-        for book in available_books:
-            print(" - Book ID:", book.book_id)
-            print(" - Book Name:", book.book_name)
-            print("--------------------------------")
 
     def select_updates_frame(self):
         App.frames["frame2"].pack_forget()
+        App.frames["frame3"].pack_forget()
         App.frames["frame1"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
     def select_view_frame(self):
         new_reservations = list(get_all_reservations(session, 10))
         self.scrollable_list.update_view(new_reservations)
         App.frames["frame1"].pack_forget()
+        App.frames["frame3"].pack_forget()
         App.frames["frame2"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+    def select_books_frame(self):
+        new_books = list(get_all_books(session, 10))
+        self.scrollable_list_books.update_view(new_books)
+        App.frames["frame1"].pack_forget()
+        App.frames["frame2"].pack_forget()
+        App.frames["frame3"].pack(in_=self.right_side_container, side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
 
 
 if __name__ == "__main__":
