@@ -12,7 +12,7 @@ from threading import Thread, Lock
 
 from utils.query_utils import *
 
-CLUSTER_IDS = ['172.22.0.2'] # Replace with your nodes
+CLUSTER_IDS = ['172.21.0.2'] # Replace with your nodes
 KEYSPACE = 'library_keyspace'
 
 PROFILE = ExecutionProfile(
@@ -252,6 +252,10 @@ class TestCassandra(unittest.TestCase):
             except InvalidRequest as e:
                 raise e
             
+        books = get_all_books(self.session)
+        book_ids = []
+        for book in books:
+            book_ids.append(book.book_id)
         assert len(book_ids) == 2000
         
         lock = Lock()
@@ -272,10 +276,10 @@ class TestCassandra(unittest.TestCase):
                     # Consistent
                     with lock:
                         add_reservation(user_session, uuid.uuid4(), user_id, user_name, selected_random_book.book_name, selected_random_book.book_id)
-                        time.sleep(random.uniform(0.01, 0.1))
+                        time.sleep(random.uniform(0.01, 0.05))
                     
                     # Fast
-                    # add_reservation(user_session, uuid.uuid4(), user_id, user_name, selected_random_book.book_name, selected_random_book.book_id)
+                    #add_reservation(user_session, uuid.uuid4(), user_id, user_name, selected_random_book.book_name, selected_random_book.book_id, verbose=False)
 
                 except:
                     pass
@@ -383,7 +387,7 @@ class TestCassandra(unittest.TestCase):
             book_id = book_ids[b_id]
             book_name = book_names[b_id]
 
-            add_reservation(self.session, uuid.uuid4(), user_id, user_name, book_name, book_id)
+            add_reservation(self.session, uuid.uuid4(), user_id, user_name, book_name, book_id, verbose=False)
             res_count -= 1
 
         def make_random_requests_fast(user_id, user_name, num_actions):
@@ -396,7 +400,7 @@ class TestCassandra(unittest.TestCase):
 
             while num_actions > 0:
                 
-                if not num_actions%20: #TODO: Getting all these is the slowest part, if you have any idea how to speed it up wihtout errors that would be cool
+                if not num_actions%100:
                     reservations = list(get_all_reservations(user_session))
                     books = list(get_all_books(user_session))
                     users = list(get_all_users(user_session))
@@ -416,7 +420,7 @@ class TestCassandra(unittest.TestCase):
 
                     # Does not assume book is available
                     try:
-                        update_reservation(user_session, reservation.reservation_id, book.book_id)
+                        update_reservation(user_session, reservation.reservation_id, book.book_id, verbose=False)
 
                     except:
                         pass
@@ -427,14 +431,14 @@ class TestCassandra(unittest.TestCase):
 
                     # Does not assume user does not possess reservation already
                     try:
-                        update_reservation_user(user_session, reservation.reservation_id, user.user_id, user.user_name)
+                        update_reservation_user(user_session, reservation.reservation_id, user.user_id, user.user_name, verbose=False)
                     except:
                         pass
 
                 elif selected_action == "cancel_reservation":
                     reservation = random.choice(reservations)
                     try:
-                        cancel_reservation(user_session, reservation.reservation_id)
+                        cancel_reservation(user_session, reservation.reservation_id, verbose=False)
 
                         # Locally update memory to make less errors
                         reservations.remove(reservation)
@@ -449,7 +453,7 @@ class TestCassandra(unittest.TestCase):
                         selected_random_book = random.choice(available_books)
 
                         try:
-                            add_reservation(user_session, uuid.uuid4(), user_id, user_name, selected_random_book.book_name, selected_random_book.book_id)
+                            add_reservation(user_session, uuid.uuid4(), user_id, user_name, selected_random_book.book_name, selected_random_book.book_id, verbose=False)
                         except:
                             pass
                         

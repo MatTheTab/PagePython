@@ -12,7 +12,7 @@ User = namedtuple('User', ['user_id', 'user_name', 'reservation_ids_list'])
 
 if __name__ == "__main__":
     # cluster = Cluster(['172.19.0.2'])
-    cluster = Cluster(['172.22.0.2'])
+    cluster = Cluster(['172.21.0.2'])
     session = cluster.connect()
     
     cluster.default_retry_policy = RetryPolicy()
@@ -47,11 +47,13 @@ if __name__ == "__main__":
     book_names = []
     for i in range(15):
         book_id = uuid.uuid4()
-        book_ids.append(book_id)
         book_name = f'Book {i+1}'
         book_names.append(book_name)
         add_book(session, book_id, book_name, False)
 
+    books = get_all_books(session)
+    for book in books:
+        book_ids.append(book.book_id)
     print(len(book_ids))
     print("BOOK", len(list(get_all_books(session))))
     

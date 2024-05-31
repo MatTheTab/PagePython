@@ -13,7 +13,7 @@ from utils.query_utils import *
 
 # SET SESSION ##############################
 # cluster = Cluster(['172.19.0.2'])
-cluster = Cluster(['172.22.0.2'])
+cluster = Cluster(['172.21.0.2'])
 session = cluster.connect()
 session.set_keyspace('library_keyspace')
 
@@ -120,8 +120,9 @@ class UpdateFrame(ctk.CTkFrame):
         if len(user_id) > 0 and len(book_id) > 0:
             book_id = uuid.UUID(book_id)
             user_id = uuid.UUID(user_id)
+            user = get_user(session, user_id)
             update_reservation(session, reservation_id, book_id)
-            update_reservation_user(session, reservation_id, user_id)
+            update_reservation_user(session, reservation_id, user_id, user.user_name)
             update_successful = True
         
         elif len(book_id) > 0:
@@ -262,7 +263,7 @@ class App(ctk.CTk):
         bt_frame3 = ctk.CTkButton(left_side_panel, text="Available books", font=("Calibri", 15, 'bold'), command=self.get_available_books)
         bt_frame3.grid(row=2, column=0, padx=20, pady=10)
         
-        logo = ctk.CTkImage(light_image=Image.open('PagePython/images/PagePython_logo_2.png'), dark_image=Image.open('PagePython/images/PagePython_logo_2.png'), size=(100, 100))
+        logo = ctk.CTkImage(light_image=Image.open('./images/PagePython_logo_2.png'), dark_image=Image.open('./images/PagePython_logo_2.png'), size=(100, 100))
 
         my_label = ctk.CTkLabel(left_side_panel, text="", image=logo)
         my_label.grid(row=4, pady=(280, 0), sticky="s")
