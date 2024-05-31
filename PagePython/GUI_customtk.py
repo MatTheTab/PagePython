@@ -12,8 +12,8 @@ from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
 from utils.query_utils import *
 
 # SET SESSION ##############################
-# cluster = Cluster(['172.19.0.2'])
-cluster = Cluster(['172.21.0.2'])
+cluster = Cluster(['172.19.0.2'])
+# cluster = Cluster(['172.21.0.2'])
 session = cluster.connect()
 session.set_keyspace('library_keyspace')
 
@@ -263,7 +263,7 @@ class App(ctk.CTk):
         bt_frame3 = ctk.CTkButton(left_side_panel, text="Available books", font=("Calibri", 15, 'bold'), command=self.get_available_books)
         bt_frame3.grid(row=2, column=0, padx=20, pady=10)
         
-        logo = ctk.CTkImage(light_image=Image.open('./images/PagePython_logo_2.png'), dark_image=Image.open('./images/PagePython_logo_2.png'), size=(100, 100))
+        logo = ctk.CTkImage(light_image=Image.open('PagePython/images/PagePython_logo_2.png'), dark_image=Image.open('PagePython/images/PagePython_logo_2.png'), size=(100, 100))
 
         my_label = ctk.CTkLabel(left_side_panel, text="", image=logo)
         my_label.grid(row=4, pady=(280, 0), sticky="s")

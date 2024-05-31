@@ -11,8 +11,8 @@ Book = namedtuple('Book', ['book_id', 'book_name', 'is_reserved'])
 User = namedtuple('User', ['user_id', 'user_name', 'reservation_ids_list'])
 
 if __name__ == "__main__":
-    # cluster = Cluster(['172.19.0.2'])
-    cluster = Cluster(['172.21.0.2'])
+    cluster = Cluster(['172.19.0.2'])
+    # cluster = Cluster(['172.21.0.2'])
     session = cluster.connect()
     
     cluster.default_retry_policy = RetryPolicy()

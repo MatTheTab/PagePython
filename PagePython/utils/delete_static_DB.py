@@ -3,7 +3,8 @@ from cassandra.policies import RetryPolicy, ExponentialReconnectionPolicy
 
 from query_utils import *
 
-cluster = Cluster(['172.21.0.2'])
+cluster = Cluster(['172.22.0.2'])
+# cluster = Cluster(['172.19.0.2'])
 session = cluster.connect()
 session.set_keyspace('library_keyspace')
 

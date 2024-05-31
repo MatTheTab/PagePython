@@ -12,7 +12,7 @@ from threading import Thread, Lock
 
 from utils.query_utils import *
 
-CLUSTER_IDS = ['172.21.0.2'] # Replace with your nodes
+CLUSTER_IDS = ['172.19.0.2'] # Replace with your nodes
 KEYSPACE = 'library_keyspace'
 
 PROFILE = ExecutionProfile(
@@ -489,140 +489,6 @@ class TestCassandra(unittest.TestCase):
         clear_DB(self.session)
         print(f"Execution time: {round(end_time - start_time, 2)}s")
 
-
-    # def test_make_random_requests_two_users(self):
-    #     # Simulates two users making 10_000 total random requests
-    #     print("\nExecuting test: Two users make 10 000 random actions...")
-
-    #     print("Adding 10 000 books")
-    #     book_ids = []
-    #     book_names = []
-    #     insert_statement_books = self.session.prepare("""
-    #         INSERT INTO books (book_id, book_name, is_reserved) VALUES (?, ?, ?)
-    #     """)
-    #     for i in range(1000):
-    #         batch_books = BatchStatement()
-    #         for j in range(10):
-    #             book_id = uuid.uuid4()
-    #             book_ids.append(book_id)
-    #             book_name = f'Book {i*10+j+1}'
-    #             book_names.append(book_name)
-    #             batch_books.add(insert_statement_books, (book_id, book_name, False))
-    #         try:
-    #             self.session.execute(batch_books, timeout=120)
-    #         except InvalidRequest as e:
-    #             raise e
-
-    #     user_ids = []
-    #     user_names = []
-    #     for i in range(10):
-    #         for j in range(10):
-    #             user_id = uuid.uuid4()
-    #             user_ids.append(user_id)
-    #             user_name = f'User {i*10+j+1}'
-    #             user_names.append(user_name)
-
-    #     print("Adding about a 1000 random reservations")
-    #     res_count = 1000
-    #     for book_id, book_name in zip(book_ids, book_names):
-    #         if res_count == 0:
-    #             break
-
-    #         u_id = random.randint(0, len(user_ids)-1)
-    #         user_id = user_ids[u_id]
-    #         user_name = user_names[u_id]
-
-    #         b_id = random.randint(0, len(book_ids)-1)
-    #         book_id = book_ids[b_id]
-    #         book_name = book_names[b_id]
-
-    #         add_reservation(self.session, uuid.uuid4(), user_id, user_name, book_name, book_id)
-    #         res_count -= 1
-
-    #     def make_random_requests(user_id, user_name, num_actions):
-    #         # Simulates a user making random requests num_actions number of times
-
-    #         user_cluster = Cluster(CLUSTER_IDS)
-    #         user_session = user_cluster.connect(KEYSPACE)
-
-    #         possible_requests = ["update_reservation_book", "update_reservation_user", "cancel_reservation", "make_reservation"]
-
-    #         while num_actions > 0:
-                
-    #             num_actions -= 1
-    #             selected_action = random.choice(possible_requests)
-
-    #             # Update DB state information
-    #             reservations = list(get_all_reservations(user_session))
-
-    #             # If no reservations left, make a reservation
-    #             if len(reservations) == 0:
-    #                 selected_action = "make_reservation"
-
-    #             books = list(get_all_books(user_session))
-    #             users = list(get_all_users(user_session))
-                
-    #             if selected_action == "update_reservation_book":
-    #                 reservation = random.choice(reservations)
-    #                 book = random.choice(books)
-
-    #                 # Does not assume book is available
-    #                 update_reservation(user_session, reservation.reservation_id, book.book_id)
-
-    #             elif selected_action == "update_reservation_user":
-    #                 reservation = random.choice(reservations)
-    #                 user = random.choice(users)
-
-    #                 # Does not assume user does not possess reservation already
-    #                 update_reservation_user(user_session, reservation.reservation_id, user.user_id, user.user_name)
-
-    #             elif selected_action == "cancel_reservation":
-    #                 reservation = random.choice(reservations)
-    #                 cancel_reservation(user_session, reservation.reservation_id)
-
-    #             elif selected_action == "make_reservation":
-    #                 available_books = [book for book in books if not book.is_reserved]
-
-    #                 # There are books available
-    #                 if len(available_books) > 0:
-    #                     selected_random_book = random.choice(available_books)
-
-    #                     try:
-    #                         add_reservation(user_session, uuid.uuid4(), user_id, user_name, selected_random_book.book_name, selected_random_book.book_id)
-    #                     except:
-    #                         pass
-                        
-    #         user_session.shutdown()
-    #         user_cluster.shutdown()
-
-    #     u_id = random.randint(1, len(user_ids)-1)
-        
-    #     user1_id = user_ids[u_id-1]
-    #     user1_name = user_names[u_id-1]
-
-    #     user2_id = user_ids[u_id]
-    #     user2_name = user_names[u_id]
-
-    #     num_repeats = 10_000
-    #     time.sleep(0.5)
-
-    #     print("Running test")
-    #     start_time = time.time()
-
-    #     thread1 = Thread(target=make_random_requests, args=[user1_id, user1_name, num_repeats//2])
-    #     thread2 = Thread(target=make_random_requests, args=[user2_id, user2_name, num_repeats//2])
-
-    #     thread1.start()
-    #     thread2.start()
-
-    #     thread1.join()
-    #     thread2.join()
-
-    #     end_time = time.time()
-    #     time.sleep(0.5)
-
-    #     clear_DB(self.session)
-    #     print(f"Execution time: {round(end_time - start_time, 2)}s")
 
 
 if __name__ == '__main__':
