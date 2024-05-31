@@ -11,3 +11,4 @@ Instructions:
     - Run ```python PagePython/GUI_customtk.py``` command. 
     - After quiting, run ```python PagePython/utils/delete_static_DB.py``` command.
 5. To run stress tests run ```python PagePython/stress_test_DB.py``` command.
+6. Deactivate cassandra in the ./Docker folder with ```docker-compose down``` command.
